@@ -1,0 +1,34 @@
+# ------------------------------------------------------------------
+# Files git must never upload (confidential data and results)
+# ------------------------------------------------------------------
+
+# Data and output folders
+INPUT/
+OUTPUT/
+
+# Survey microdata and saved R objects
+*.dta
+*.rds
+*.RData
+*.rda
+
+# Data / results files (World Bank snapshots, tables, spreadsheets)
+*.csv
+*.xlsx
+*.xls
+
+# Draft manuscript documents
+*.docx
+*.pdf
+
+# Figures and maps
+*.png
+*.zip
+*.shp
+
+# R and system clutter
+.Rhistory
+.Rproj.user/
+.DS_Store
+Thumbs.db
+~$*
