@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this code, please cite the paper below (details will be updated when the pre-print is available)."
+title: "Global estimates of water insecurity: R analysis pipeline"
+type: software
+authors:
+  - family-names: Bose
+    given-names: Indira
+    affiliation: "London School of Hygiene & Tropical Medicine"
+    email: indira.bose@lshtm.ac.uk
+preferred-citation:
+  type: article
+  title: "[Paper title to be added]"
+  authors:
+    - family-names: Bose
+      given-names: Indira
+  year: 2026
+  notes: "Pre-print / journal and DOI to be added"
