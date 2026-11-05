@@ -88,7 +88,7 @@ Run times are appended to `OUTPUT/logs/run_times.csv`. Package versions are writ
 
 ## 4. Scripts
 
-Approximate run times are for a standard Windows laptop. **Main pipeline total, excluding A0: about 2 hours** (November 2026 run on the full data: A4 ≈ 1 h, B1 ≈ 30 min, B11 ≈ 20 min; everything else a few minutes). Times are wall-clock and can be much longer if the computer is busy or goes to sleep. A2 (≈ 40 min) and A3 (≈ 35 min) are optional and not counted in the total.
+Approximate run times are for a standard Windows laptop (32 GB). **Main pipeline total, excluding A0: about 2 hours** (November 2026 run on the full data: A4 ≈ 1 h, B1 ≈ 30 min, B11 ≈ 20 min; everything else a few minutes). Timings may vary depending on computer and if other tasks are running. A2 (≈ 40 min) and A3 (≈ 35 min) are optional and not counted in the total.
 
 ### A - Data preparation
 
