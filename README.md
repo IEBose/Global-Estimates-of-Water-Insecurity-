@@ -235,7 +235,7 @@ Each script also writes check tables, prefixed with the script name (e.g. `A1_mo
 | MAE / RMSE | Average error in prevalence points (RMSE penalises large errors more) | Smaller |
 | AUC | Individual-level discrimination (chance that a random insecure respondent scores higher than a secure one) | 0.5 = chance; >0.7 acceptable; >0.8 good |
 | Brier | Mean squared error of individual probabilities | Smaller |
-| Calibration slope | <1: predictions too extreme; >1: too compressed | ≈ 1 |
+| Calibration slope | <1: high predictions tend to be above, and low predictions below, the observed values; >1: the reverse (high predictions below, low predictions above) | ≈ 1 |
 | Calibration intercept | Systematic over- or under-prediction | ≈ 0 |
 | ICC (mixed model) | Share of outcome variation between countries (latent scale). B1 reports it with and without predictors; the drop is the share of between-country variance the predictors explain (Table S6 footnote) | Lower with predictors = predictors capture country differences |
 
