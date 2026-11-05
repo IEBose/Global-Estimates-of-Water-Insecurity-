@@ -27,7 +27,7 @@ XGBoost, random forest and a mixed-effects logistic model are fitted for compari
 There are two separate region variables. Keep them apart.
 
 - **`region_final`** is a 9-category **model predictor**. For all data (observed, prediction and national), it is built from UN M49 by `assign_region_final_m49()` in `00_setup.R`. "MENA" in this variable means Northern Africa, Western Asia and Central Asia. Pacific islands other than Australia and New Zealand go to East & SE Asia.
-- **M49 region / sub-region** is used for **all reporting** (tables, figures, uncertainty intervals). 
+- **M49 region / sub-region** is used for **all reporting** (tables, figures, uncertainty intervals).
 
 B9 tests how sensitive the estimates are to the model-region assignment: JPN, KOR and SGP are moved to N. America/Europe/Australia, and SDN and YEM to Eastern Africa.
 
@@ -88,7 +88,7 @@ Run times are appended to `OUTPUT/logs/run_times.csv`. Package versions are writ
 
 ## 4. Scripts
 
-Approximate run times are for a standard laptop. **Main pipeline total, excluding A0: about 5–5.5 hours** (October 2026 run on the full data: A4 ≈ 4 h, B1 ≈ 45 min, B11 ≈ 20 min; everything else a few minutes). A2 (≈ 40 min) and A3 (≈ 35 min) are optional and not counted in the total; with them, about 6.5 hours.
+Approximate run times are for a standard Windows laptop. **Main pipeline total, excluding A0: about 2 hours** (November 2026 run on the full data: A4 ≈ 1 h, B1 ≈ 30 min, B11 ≈ 20 min; everything else a few minutes). Times are wall-clock and can be much longer if the computer is busy or goes to sleep. A2 (≈ 40 min) and A3 (≈ 35 min) are optional and not counted in the total.
 
 ### A — Data preparation
 
@@ -100,20 +100,20 @@ Approximate run times are for a standard laptop. **Main pipeline total, excludin
 | `A2_Original_ML_Training.R` | Original ML training on single (simple) imputation | A1 | ~40 min | **Optional**, for interest only |
 | `A3_Imputation_sensitivity.R` | Compares MICE with simple imputation and model-based income imputation (hold-out AUC) | A1, A2 | ~35 min | **Optional**. Writes Table S12 (`A3_tableS12_imputation_sensitivity.csv`) |
 | `A4b_Sensitivity_MICE_all_national_vars.R` | Sensitivity: MICE imputes ALL incomplete national variables (incl. water stress, precipitation, basic water, under-5 mortality, which A4 fills with model-region medians), then re-runs B1–B6, B8 into `OUTPUT_sensitivity_MICE_all_national/` and compares country, regional and global estimates and LCO CV metrics with the main run | Main pipeline (A1, A4, B1–B8) | ~1–2 h | **Optional**, not in run_all. Main OUTPUT/ is not changed. Run in a fresh R session |
-| `A4_MICE_Imputation.R` | MICE for country-level variables (194 countries; mean of 5 imputations) and individual-level variables (df + new_data; imputation 1) | A1 | ~4 h | Needs only A1. Also writes the spread across imputations (`A4_country_imputation_spread.csv`). National predictors not imputed by MICE (water stress, precipitation, basic water, under-5 mortality) and countries MICE cannot impute get the model-region median (see A4b) |
+| `A4_MICE_Imputation.R` | MICE for country-level variables (194 countries; mean of 5 imputations) and individual-level variables (df + new_data; imputation 1) | A1 | ~1 h | Needs only A1. Also writes the spread across imputations (`A4_country_imputation_spread.csv`). National predictors not imputed by MICE (water stress, precipitation, basic water, under-5 mortality) and countries MICE cannot impute get the model-region median (see A4b) |
 | `A5_Descriptive_statistics.R` | Descriptive statistics for the 76 observed countries: survey-weighted individual predictors (as Stata `svy: mean x`; overall, optionally by M49 region) and national predictors, each **before and after MICE**; number of countries per M49 region / sub-region and by tier; % missing per individual variable (Table S3) | A1, A4 | 2–5 min (mostly a one-off check against the survey package) | Tables S1A, S1B, S3. Design as in Stata `svyset psu [pweight = projectionwgt_svy_yr], strata(strata) singleunit(certainty)`, with strata/PSUs made unique within country and year |
 
 ### B — Analysis
 
 | Script | Purpose | Depends on | Run time | Notes |
 |---|---|---|---|---|
-| `B1_Individual_level_Training.R` | Trains and tests ENET, RF, XGB and mixed models on the 76 observed countries (individual + national predictors) | A4 | ~45 min+ | Tables S5, S6 (ICC with/without predictors for the S6 footnote); Figs 6, S8–S10, S15–S17. Saves out-of-sample predictions used later for UIs. RF (`num.threads = 1`) and XGBoost (`nthread = 1`, `tree_method = "hist"`) run single-threaded so results are identical on every computer (slower than before) |
+| `B1_Individual_level_Training.R` | Trains and tests ENET, RF, XGB and mixed models on the 76 observed countries (individual + national predictors) | A4 | ~30 min | Tables S5, S6 (ICC with/without predictors for the S6 footnote); Figs 6, S8–S10, S15–S17. Saves out-of-sample predictions used later for UIs. RF (`num.threads = 1`) and XGBoost (`nthread = 1`, `tree_method = "hist"`) run single-threaded so results are identical on every computer |
 | `B2_Individual_ENET_predictions.R` | Predicts the 85 `new_data` countries with ENET | A4, B1 | 1–2 min | Tier 2 estimates. Extrapolation checks by variable and by country |
 | `B2b_Imputation_sensitivity.R` | **Sensitivity (no change to results):** Tier 2 estimates from each of the 5 MICE imputations (prediction side), and with the ENET refitted on each of the 5 imputed training datasets (training side, α and λ fixed) | A4, B1, B2 | a few min | `B2b_tier2_by_prediction_imputation.csv`, `B2b_tier2_by_training_imputation.csv`, `B2b_enet_coefficients_by_training_imputation.csv`, `B2b_imputation_sensitivity_summary.csv`. Countries with whole variables imputed are marked |
 | `B3_Individual_XGB_predictions.R` | Same as B2 using XGB | B1, B2 | <1 min | Sensitivity |
 | `B4_Country_level_Training.R` | Trains and tests country-level models (national predictors only) on the 76 observed countries | A1 (hold-outs), A4, B1 (country folds) | 1–3 min | Tables S7, S8; Figs S14, S18, S19. Same hold-outs and 5 folds as B1. Final model refitted on 76. XGBoost single-threaded. `B4_enet_country_coefficients.csv` lists all coefficients (incl. 0) with exp(coefficient). `B4_prediction_interval_coverage.csv` checks the logit-scale (used) and prevalence-scale intervals |
 | `B5_Country_ENET_predictions_comparison.R` | Country ENET predictions for all 194; compares individual vs country models for the 85 | A4, B2, B4 | <1 min | Only the 33 Tier 3 countries enter the final estimates |
-| `B6_Country_XGB_predictions.R` | Country XGB predictions for all 194 | A4, B4, B5 | <1 min | Sensitivity (new script; code moved from B5) |
+| `B6_Country_XGB_predictions.R` | Country XGB predictions for all 194 | A4, B4, B5 | <1 min | Sensitivity |
 | `B7_Validation_Graphs.R` | Validation graphs for individual and country models (ENET and XGB) | B1, B4, B5 | ~1 min | Figs 5, S11–S13; calibration statistics |
 | `B8_Global_Estimates_CIs.R` | Combines the 3 tiers; country CIs; region, sub-region, income and global estimates with CIs | A1, B1–B6 | 5–15 min | Table S9 (flagged countries; out-of-range values flagged at ≥10% of the training range, `min_pct_outside`; entirely imputed individual variables; note row); country estimates (input to Table S10); B8 intervals (sensitivity, logit scale); tier contributions |
 | `B9_Sensitivity_region_estimates.R` | Effect of model-region assignment on the estimates | B1, B2 | <1 min | Table S11 |
@@ -124,11 +124,11 @@ Approximate run times are for a standard laptop. **Main pipeline total, excludin
 
 | Script | Purpose | Depends on | Run time | Notes |
 |---|---|---|---|---|
-| `C1_Global_Estimates_Figures_Maps.R` | Bar charts and forest plot of the estimates; alternative maps | B8, B11 (UIs) | 2–5 min | Figs 2, S1, S2, S3. Maps saved as `C1_alt_*` (paper maps are from C5). Stops if B11's UIs are missing or older than B8's estimates (no silent switch to B8 intervals) |
+| `C1_Global_Estimates_Figures_Maps.R` | Bar charts and forest plot of the estimates; alternative maps | B8, B11 (UIs) | 2–5 min | Figs 2, S1, S2, S3. Maps saved as `C1_alt_*` (paper maps are from C5). Stops if B11's UIs are missing or older than B8's estimates |
 | `C2_Bivariate_maps.R` | Bivariate maps: WI × water indicators (alternative versions, `C2_alt_*`) | A1 (non-imputed indicators), B8 | 1–2 min | Paper versions are from C5. Uses **observed (non-imputed)** water statistics only |
 | `C3_Key_Indicator_correlations.R` | Correlations and GNI-adjusted partial correlations of WI with water indicators, all countries and observed only | A1 (non-imputed indicators), B8 | <1 min | Figs 4, S4, S5, S6 (panels A, B, C, C1–C3). Non-imputed indicators; loess span = 1 |
 | `C4_UN_boundary_maps.R` | Alternative maps on UN boundaries (`C4_alt_*`): disputed/undetermined areas outlined with dashed lines and filled with the estimate set in `disputed_rules` | A1, B8 | 2–5 min | Same data, colours and classes as C1/C2/C5. Prints `C4_disputed_polygons_check.csv` |
-| `C5_WHO_style_maps.R` | **Paper maps** (Figs 1, 3, S7) on UN boundaries, drawn to the WHO map SOPs: Western Sahara, Jammu and Kashmir and Abyei grey ("Data not available"); dotted / dashed disputed lines; Arunachal Pradesh, Aksai Chin, Southern Kurils, Taiwan, Hong Kong and Macao drawn with India / China / Russia; Kosovo with Serbia (dashed line); large lakes; legends end with "Data not available"; WHO-style disclaimer naming the authors | A1, B8 | 1–2 min | Abyei, the Serbia–Kosovo line and lakes come from Natural Earth (downloaded once to `INPUT/maps`; no `rnaturalearth` package needed). Writes `C5_disputed_areas_check.csv`. Warns if Israel and West Bank/Gaza fall in the same colour class. Check the maps zoomed in on the disputed areas before submission |
+| `C5_WHO_style_maps.R` | **Paper maps** (Figs 1, 3, S7) on UN boundaries, following the WHO Standard Operating Procedures for maps | A1, B8 | ~2 min | Abyei, the Serbia–Kosovo line and lakes come from Natural Earth (downloaded once to `INPUT/maps`). Saves PNG, PDF and SVG |
 
 `run_all.R` runs everything in order.
 

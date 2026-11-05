@@ -33,8 +33,7 @@
 #                                 out-of-sample country residual ON THE LOGIT SCALE
 #    Residuals are added to the logit of the prevalence and transformed back, so
 #    every draw stays between 0 and 1 without clipping and intervals narrow
-#    towards 0% and 100% (previously residuals were added on the prevalence
-#    scale and draws below 0 were set to 0, giving many lower bounds of 0%).
+#    towards 0% and 100%.
 #    Groups                       population-weighted (15+, 2025) means of the
 #                                 194 countries in that repetition; countries are
 #                                 NOT resampled at this step

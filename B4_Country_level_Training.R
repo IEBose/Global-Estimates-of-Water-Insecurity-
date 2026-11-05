@@ -496,7 +496,7 @@ message("Footnote numbers - LCO CV: ",
 #   "logit"      residuals on the logit scale, added to logit(prediction) and
 #                transformed back (as used for the B8 / B11 intervals)
 #   "prevalence" residuals in percentage points, bounds clipped to [0, 1]
-#                (previous method, for comparison)
+#                (for comparison)
 # Checks the model-prediction component only.
 coverage_one <- function(obs, pred, region, model_name) {
   res   <- obs - pred

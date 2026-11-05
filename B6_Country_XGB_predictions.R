@@ -5,7 +5,6 @@
 #            XGBoost model (out-of-sample prediction for the 76 observed countries).
 #            Used in Table S10 (Prev xgb country) and to flag model disagreement
 #            for Tier 3 countries (Table S9). NOT used in the main estimates.
-#            (This code was previously at the end of B4.)
 #
 #  Depends : A4, B4, B5 (tier assignment)
 #  Inputs  : data/wb_imputed.rds, data/country_df_oos.rds, data/country_preds_enet.rds,

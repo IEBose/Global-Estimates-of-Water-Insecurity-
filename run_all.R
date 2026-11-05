@@ -5,31 +5,32 @@
 #  so any script can also be run on its own once its inputs exist.
 #  Run times for every script are appended to OUTPUT/logs/run_times.csv.
 #
-#  Run times from the October 2026 run on the full data (logs/run_times.csv):
+#  Run times from the November 2026 run on the full data (logs/run_times.csv).
+#  Wall-clock times: they can be much longer if the computer is busy or goes to sleep.
 #    A0  World Bank pull (API)             ~1-3 min   (only when refreshing data)
-#    A1  Data cleaning                     ~2-5 min
-#    A4  MICE imputation                   ~4 h (individual-level MICE dominates)
-#    A5  Descriptive statistics            ~2-5 min (mostly the survey-package check)
-#    B1  Individual-level training         ~45 min (RF + mixed model in 5-fold LCO CV; SHAP);
-#                                          longer from Nov 2026 (RF and XGBoost single-threaded
-#                                          so results are identical on every computer)
-#    B2  Individual ENET predictions       ~1-2 min
-#    B2b Imputation sensitivity (5 MICE imputations; no change to results) ~few min (new, Nov 2026)
+#    A1  Data cleaning                     <1 min
+#    A4  MICE imputation                   ~1 h (individual-level MICE dominates)
+#    A5  Descriptive statistics            ~1 min
+#    B1  Individual-level training         ~30 min (RF + mixed model in 5-fold LCO CV; SHAP;
+#                                          RF and XGBoost single-threaded so results are
+#                                          identical on every computer)
+#    B2  Individual ENET predictions       <1 min
+#    B2b Imputation sensitivity            ~1-2 min (5 MICE imputations; no change to results)
 #    B3  Individual XGB predictions        <1 min
-#    B4  Country-level training (5-fold)   ~1-3 min
+#    B4  Country-level training (5-fold)   ~1 min
 #    B5  Country ENET predictions          <1 min
 #    B6  Country XGB predictions           <1 min
 #    B7  Validation graphs                 ~1 min
-#    B8  Global estimates + CIs            ~5-15 min (bootstraps; B8 intervals = sensitivity)
+#    B8  Global estimates + CIs            ~2 min (bootstraps; B8 intervals = sensitivity)
 #    B9  Region sensitivity                <1 min
 #    B10 Intervals, countries fixed        <1 min    (sensitivity)
 #    B11 Model bootstrap UIs               ~20 min (MAIN group UIs; case + residual)
-#    C1  Figure 2, S1-S3 (+ alternative maps) ~2-5 min  (first run downloads UN boundaries)
-#    C2  Bivariate maps (alternative)      ~1-2 min
+#    C1  Figure 2, S1-S3 (+ alternative maps) <1 min  (first run downloads UN boundaries)
+#    C2  Bivariate maps (alternative)      <1 min
 #    C3  Figure 4, S4-S6 (correlations)    <1 min
-#    C4  Maps on UN boundaries (alternative) ~2-5 min
-#    C5  Figures 1, 3, S7 (WHO map SOPs)   ~1-2 min  (first run downloads Natural Earth layers)
-#    TOTAL (main pipeline, excl. A0)       ~5-5.5 hours (logged run, Oct 2026)
+#    C4  Maps on UN boundaries (alternative) ~1 min
+#    C5  Figures 1, 3, S7 (WHO map SOPs)   ~2 min  (first run downloads Natural Earth layers)
+#    TOTAL (main pipeline, excl. A0)       ~2 hours (logged run, Nov 2026)
 #
 #  Optional, for interest only (NOT needed for the paper, NOT in the total):
 #    A2  Original ML training (single imputation)   ~40 min
