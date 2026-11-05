@@ -9,8 +9,8 @@
 #              Figure S2   prevalence by M49 sub-region (95% UIs)
 #              Figure S3   number affected by M49 sub-region (95% UIs)
 #              Maps (alternative versions): prevalence and data source. The
-#                          paper's Figure 1 is drawn by C4 (UN boundaries with
-#                          disputed areas); C1's maps are kept as a backup.
+#                          paper's Figure 1 is drawn by C5 (UN boundaries, WHO
+#                          map SOPs); C1's maps are kept as a backup.
 #              (extra)     prevalence by data scenario (observed only / + individual / all)
 #
 #  Depends : B8
@@ -32,11 +32,20 @@ load_pkgs("sf")
 
 all_tiers <- load_data("all_tiers")
 # Group intervals: country-bootstrap UIs from B11 (main) or B8 (interval_source in 00_setup.R)
-cis <- if (interval_source == "B11" && file.exists(file.path(dir_data, "group_UIs_B11.rds"))) {
-  load_data("group_UIs_B11")
+# No silent fallback: with interval_source = "B11", C1 stops if B11's output is
+# missing or older than B8's estimates (e.g. B8 rerun without B11), so the
+# figures can never show B8 intervals labelled "95% UI". To use B8's intervals
+# on purpose, set interval_source <- "B8" in 00_setup.R (labels then say "95% CI").
+if (interval_source == "B11") {
+  f_b11 <- file.path(dir_data, "group_UIs_B11.rds")
+  f_b8  <- file.path(dir_data, "all_tiers.rds")
+  if (!file.exists(f_b11))
+    stop("group_UIs_B11.rds not found: run B11 before C1 (or set interval_source <- \"B8\" in 00_setup.R)")
+  if (file.mtime(f_b11) < file.mtime(f_b8))
+    stop("group_UIs_B11.rds is older than B8's all_tiers.rds: rerun B11 so the UIs match the current estimates")
+  cis <- load_data("group_UIs_B11")
 } else {
-  if (interval_source == "B11") warning("group_UIs_B11.rds not found (run B11) - using B8 intervals instead")
-  load_data("group_CIs")
+  cis <- load_data("group_CIs")
 }
 message("Group intervals used: ", if (!is.null(cis$region$interval)) cis$region$interval[1] else "B8")
 contrib   <- load_data("tier_contributions")
@@ -44,7 +53,7 @@ scenario  <- read_csv(file.path(dir_tables, "B8_prevalence_by_data_scenario.csv"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 1. MAPS (alternative to Figure 1 in C4)
+# 1. MAPS (alternative to Figure 1 in C5)
 # ══════════════════════════════════════════════════════════════════════════════
 
 prev_colours <- c("<5%" = "#FFFFB2", "5-10%" = "#FED976", "10-20%" = "#FEB24C",

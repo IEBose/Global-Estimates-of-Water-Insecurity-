@@ -80,6 +80,12 @@ file_nowise_dta <- file.path(input_dir, "Gallup_World_Poll_Mar26_noWISE.dta")   
 file_un_bnda_zip <- file.path(input_dir, "maps", "BNDA_simplified.zip")
 dir_un_bnda      <- file.path(input_dir, "maps", "BNDA_simplified")
 url_un_bnda      <- "https://geoportal.un.org/arcgis/sharing/rest/content/items/e4ee80edac9d4e08b8303522dd4a5fc1/data"
+# Natural Earth layers used by C5 (WHO-style maps): Abyei and the Serbia-Kosovo
+# line (not in BNDA_simplified) and large lakes. Downloaded once if missing.
+dir_ne_disputed  <- file.path(input_dir, "maps", "ne_10m_admin_0_disputed_areas")
+url_ne_disputed  <- "https://naciscdn.org/naturalearth/10m/cultural/ne_10m_admin_0_disputed_areas.zip"
+dir_ne_lakes     <- file.path(input_dir, "maps", "ne_50m_lakes")
+url_ne_lakes     <- "https://naciscdn.org/naturalearth/50m/physical/ne_50m_lakes.zip"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -114,7 +120,7 @@ set.seed(seed)
 #   "B11" = country (case) bootstrap with model refits (main; needs B11)
 #   "B8"  = B8 intervals (countries resampled with replacement)
 interval_source <- "B11"
-interval_label  <- "95% UI"        # uncertainty interval
+interval_label  <- if (interval_source == "B11") "95% UI" else "95% CI"   # follows interval_source
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -381,12 +387,22 @@ save_fig   <- function(plot, name, ...) {
 # Each script calls start_timer("A1") at the top and stop_timer() at the end.
 # Times are appended to logs/run_times.csv so that the time for each script
 # (and for the whole pipeline) is recorded every time it is run.
+# Each script also records R and package versions in logs/sessionInfo_<script>.txt
+# (written at the start, so there is a record even if the script stops, and
+# rewritten at the end, when all its packages are loaded)
+write_session_info <- function(script) {
+  f <- file.path(dir_logs, paste0("sessionInfo_", script, ".txt"))
+  writeLines(c(paste("Script:", script, "| written", format(Sys.time(), "%Y-%m-%d %H:%M:%S")),
+               capture.output(sessionInfo())), f)
+}
 start_timer <- function(script) {
   assign(".timer_script", script, envir = .GlobalEnv)
   assign(".timer_start", Sys.time(), envir = .GlobalEnv)
+  write_session_info(script)
   message("── ", script, " started ", format(Sys.time(), "%H:%M:%S"))
 }
 stop_timer <- function(optional = FALSE) {
+  write_session_info(.timer_script)
   mins <- as.numeric(difftime(Sys.time(), .timer_start, units = "mins"))
   row  <- tibble::tibble(script = .timer_script, optional = optional,
                          started = format(.timer_start, "%Y-%m-%d %H:%M:%S"),
@@ -409,11 +425,31 @@ observed_country_prevalence <- function(df) {
   des <- survey::svydesign(ids = ~psu, strata = ~strata, weights = ~wgtnorm_using, data = d, nest = TRUE)
   survey::svyby(~outcome_num, ~country_code, des, survey::svymean, na.rm = TRUE) %>%
     tibble::as_tibble() %>%
-    dplyr::transmute(country_code = as.character(country_code), prevalence = outcome_num, se)
+    dplyr::transmute(country_code = as.character(country_code), prevalence = outcome_num, se,
+                     df_design = survey::degf(des))   # design df (PSUs - strata), as Stata
+}
+
+# ── 95% CI for a survey proportion, as Stata's svy: proportion ──
+# Logit interval: logit(p) +/- t(df) * SE / (p(1 - p)), back-transformed, so the
+# bounds stay within 0-1. t uses the design degrees of freedom. The estimate
+# and SE are the same as svy: mean; only the interval differs.
+prop_ci_logit <- function(p, se, df, level = 0.95) {
+  t  <- qt(1 - (1 - level) / 2, df)
+  hw <- t * se / (p * (1 - p))
+  tibble::tibble(ci_lower = ifelse(p <= 0 | p >= 1, p, plogis(qlogis(p) - hw)),
+                 ci_upper = ifelse(p <= 0 | p >= 1, p, plogis(qlogis(p) + hw)))
 }
 
 # ── Inverse logit ──
 inv_logit <- function(x) exp(x) / (1 + exp(x))
+
+# ── Logit scale for prevalence intervals (B8, B10, B11) ──
+# logit_c: logit with prevalence bounded to [0.001, 0.999] so 0 or 1 cannot
+# give infinite values. logit_se: delta-method SE on the logit scale,
+# SE / (p (1 - p)). Country draws are made on the logit scale and transformed
+# back, so they stay between 0 and 1 without clipping.
+logit_c  <- function(p) { p <- pmin(pmax(p, 0.001), 0.999); log(p / (1 - p)) }
+logit_se <- function(p, se) { p <- pmin(pmax(p, 0.001), 0.999); se / (p * (1 - p)) }
 
 # ── UN world boundaries (Equal Earth projection), shared by C1 and C2 ──
 # Downloads the UN simplified boundaries once into INPUT/maps, then caches the

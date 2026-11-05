@@ -35,9 +35,9 @@
 #              B4_model_comparison_all_sets.csv, B4_model_comparison_LCO_CV_full.csv,
 #              B4_model_comparison_holdout_all76_full.csv, B4_country_cv_metrics.csv,
 #              B4_baseline_oos_predictions.csv, B4_prediction_interval_coverage.csv
-#            figures: B4_figS13_country_cv_all_models.png,
-#                     B4_figS17_country_feature_importance.png,
-#                     B4_figS18_shap_country_xgb.png
+#            figures: B4_figS14_country_cv_all_models.png,
+#                     B4_figS18_country_feature_importance.png,
+#                     B4_figS19_shap_country_xgb.png
 #
 #  HOW TO READ THE METRICS (Tables S7, S8)
 #    R²         squared correlation of observed vs out-of-sample predicted
@@ -137,6 +137,7 @@ bake_Xc <- function(rec, d) bake(rec, d) %>% select(-logit_prev) %>% as.matrix()
 xgb_country_params <- list(objective = "reg:squarederror", eval_metric = "rmse",
                            eta = 0.05, max_depth = 3, subsample = 0.8,
                            colsample_bytree = 0.7, min_child_weight = 3, gamma = 2,
+                           tree_method = "hist", nthread = 1,   # identical on every computer
                            seed = seed)
 
 # Fit all 4 models on `train`, return predicted prevalence for `test`
@@ -254,12 +255,20 @@ save_table(tibble(model = "Beta regression", pseudo_R2 = summary(beta_model)$pse
            "B4_beta_pseudo_R2")
 
 enet_country_model <- glmnet(X_country, y_country, alpha = best_alpha_c, lambda = best_lambda_c)
-enet_country_coefs <- coef(enet_country_model) %>% as.matrix() %>% as.data.frame() %>%
+# All coefficients, including those shrunk to 0 (not selected). The outcome is
+# the logit of country prevalence, so odds_ratio = exp(coefficient) is the
+# multiplicative change in the odds of country prevalence per 1 SD of the
+# predictor (all predictors, including region dummies, are standardised).
+enet_country_coefs_full <- coef(enet_country_model) %>% as.matrix() %>% as.data.frame() %>%
   rownames_to_column("feature") %>% rename(coefficient = s0) %>%
-  filter(coefficient != 0, feature != "(Intercept)") %>%
-  mutate(feature_label = relabel(feature)) %>%
+  filter(feature != "(Intercept)") %>%
+  mutate(feature_label = relabel(feature),
+         odds_ratio    = exp(coefficient),
+         selected      = coefficient != 0) %>%
   arrange(desc(abs(coefficient)))
-save_table(enet_country_coefs, "B4_enet_country_coefficients")
+save_table(enet_country_coefs_full, "B4_enet_country_coefficients")
+
+enet_country_coefs <- enet_country_coefs_full %>% filter(selected)   # selected only (Figure S18)
 
 set.seed(seed)
 xgb_country_model <- xgb.train(params = xgb_country_params, data = xgb.DMatrix(X_country, label = y_country),
@@ -269,7 +278,7 @@ save_table(xgb_country_imp, "B4_xgb_country_importance")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 7. FEATURE IMPORTANCE (Figures S17, S18)
+# 7. FEATURE IMPORTANCE (Figures S18, S19)
 # ══════════════════════════════════════════════════════════════════════════════
 
 p_coef_country <- enet_country_coefs %>%
@@ -290,21 +299,21 @@ p_xgb_country <- xgb_country_imp %>%
   labs(title = "b) XGBoost feature importance (country-level)", x = "Gain", y = NULL) +
   theme_minimal()
 
-save_fig(p_coef_country | p_xgb_country, "B4_figS17_country_feature_importance.png",
+save_fig(p_coef_country | p_xgb_country, "B4_figS18_country_feature_importance.png",
          width = 14, height = 7, dpi = 300)
 
 shap_country <- shapviz(xgb_country_model, X_pred = X_country)
 colnames(shap_country$S) <- colnames(shap_country$X) <- relabel(colnames(shap_country$S))
 save_fig(sv_importance(shap_country, kind = "beeswarm", max_display = 15) +
            labs(title = "SHAP Feature Importance - XGBoost (country-level)") + theme_minimal(),
-         "B4_figS18_shap_country_xgb.png", width = 10, height = 7, dpi = 300)
+         "B4_figS19_shap_country_xgb.png", width = 10, height = 7, dpi = 300)
 save_fig(sv_importance(shap_country, kind = "bar", max_display = 15) +
            labs(title = "Mean |SHAP| - XGBoost (country-level)") + theme_minimal(),
          "B4_shap_bar_country_xgb.png", width = 8, height = 6, dpi = 300)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 8. PLOTS: OUT-OF-SAMPLE PREDICTED vs OBSERVED (Figure S13) AND RESIDUALS
+# 8. PLOTS: OUT-OF-SAMPLE PREDICTED vs OBSERVED (Figure S14) AND RESIDUALS
 # ══════════════════════════════════════════════════════════════════════════════
 # Circles = LCO CV countries; triangles = hold-out countries
 
@@ -326,7 +335,7 @@ p_oos <- ggplot(oos_long, aes(x = Mod_high_WI, y = predicted)) +
        x = "Observed Prevalence (weighted)", y = "Out-of-sample Predicted Prevalence",
        colour = "M49 region", shape = NULL) +
   theme_minimal() + theme(legend.position = "bottom", legend.box = "vertical")
-save_fig(p_oos, "B4_figS13_country_cv_all_models.png", width = 14, height = 7, dpi = 300)
+save_fig(p_oos, "B4_figS14_country_cv_all_models.png", width = 14, height = 7, dpi = 300)
 
 # Residuals for the best model (lowest MAE in LCO CV, comparable with Table S7)
 best_model_name <- cv_results %>% filter(validation == "LCO CV (70)") %>%
@@ -480,18 +489,30 @@ message("Footnote numbers - LCO CV: ",
 # ── (c) Coverage of 95% prediction intervals (observed countries) ──
 # For each observed country: out-of-sample prediction + 2.5th / 97.5th
 # percentiles of the out-of-sample residuals of the OTHER 75 countries (leave
-# own residual out), bounded to [0, 1]. Coverage = % of countries whose observed
-# prevalence lies inside. About 95% (roughly 90-98% given 76 countries) means
-# the residual-based model uncertainty used for predicted countries is about
-# right. Checks the model-prediction component only.
+# own residual out). Coverage = % of countries whose observed prevalence lies
+# inside. About 95% (roughly 90-98% given 76 countries) means the
+# residual-based model uncertainty used for predicted countries is about right.
+# Two versions:
+#   "logit"      residuals on the logit scale, added to logit(prediction) and
+#                transformed back (as used for the B8 / B11 intervals)
+#   "prevalence" residuals in percentage points, bounds clipped to [0, 1]
+#                (previous method, for comparison)
+# Checks the model-prediction component only.
 coverage_one <- function(obs, pred, region, model_name) {
-  res <- obs - pred
-  lo <- hi <- numeric(length(obs))
+  res   <- obs - pred
+  res_l <- logit_c(obs) - logit_c(pred)
+  lo <- hi <- lo_l <- hi_l <- numeric(length(obs))
   for (i in seq_along(obs)) {
     q <- quantile(res[-i], c(0.025, 0.975))
     lo[i] <- max(pred[i] + q[1], 0); hi[i] <- min(pred[i] + q[2], 1)
+    ql <- quantile(res_l[-i], c(0.025, 0.975))
+    lo_l[i] <- plogis(logit_c(pred[i]) + ql[1]); hi_l[i] <- plogis(logit_c(pred[i]) + ql[2])
   }
-  tibble(model = model_name, region = region, inside = obs >= lo & obs <= hi, width = hi - lo)
+  bind_rows(
+    tibble(model = model_name, scale = "logit", region = region,
+           inside = obs >= lo_l & obs <= hi_l, width = hi_l - lo_l, lower_at_0 = lo_l <= 0),
+    tibble(model = model_name, scale = "prevalence", region = region,
+           inside = obs >= lo & obs <= hi, width = hi - lo, lower_at_0 = lo <= 0))
 }
 ind_oos_cov <- load_data("country_pred_individual_oos")
 cov_all <- bind_rows(
@@ -500,13 +521,13 @@ cov_all <- bind_rows(
   coverage_one(country_df_oos$Mod_high_WI, country_df_oos$oos_enet, as.character(country_df_oos$m49_region),
                "Country-level Elastic Net"))
 coverage <- bind_rows(
-  cov_all %>% group_by(model) %>%
+  cov_all %>% group_by(model, scale) %>%
     summarise(region = "All", n_countries = n(), coverage_pct = 100 * mean(inside),
-              mean_width_pp = 100 * mean(width), .groups = "drop"),
-  cov_all %>% group_by(model, region) %>%
+              mean_width_pp = 100 * mean(width), n_lower_at_0 = sum(lower_at_0), .groups = "drop"),
+  cov_all %>% group_by(model, scale, region) %>%
     summarise(n_countries = n(), coverage_pct = 100 * mean(inside),
-              mean_width_pp = 100 * mean(width), .groups = "drop")
-) %>% arrange(model, region != "All", region)
+              mean_width_pp = 100 * mean(width), n_lower_at_0 = sum(lower_at_0), .groups = "drop")
+) %>% arrange(model, desc(scale == "logit"), region != "All", region)
 save_table(coverage, "B4_prediction_interval_coverage")
 print(coverage, n = Inf)
 

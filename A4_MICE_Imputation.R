@@ -28,8 +28,8 @@
 #            OUTPUT/data/mice_completed_all.rds (all 5 completed datasets)
 #            OUTPUT/tables/A4_mice_logged_events.csv, wb_country_vars_MICE_imputed.csv
 #
-#  Run time: the individual-level MICE dominates (~95 s per iteration;
-#            5 imputations x 10 iterations ~ 80 min).
+#  Run time: ~4 h on the full data (October 2026 run); the individual-level
+#            MICE dominates (5 imputations x 10 iterations).
 #
 #  What to look out for:
 #    * "Logged events" — MICE lists variables it dropped or could not impute

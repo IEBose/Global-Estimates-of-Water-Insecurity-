@@ -6,15 +6,17 @@
 #            global 95% CIs from B8.
 #              B8           each of 1,000 repetitions resamples countries WITH
 #                           replacement within each group, then draws each
-#                           country's prevalence from Normal(estimate, SE).
+#                           country's prevalence on the logit scale,
+#                           Normal(logit(estimate), SE_logit).
 #              This script  countries are sampled WITHOUT replacement, i.e. every
 #                           country appears exactly once in every repetition;
-#                           only the Normal(estimate, SE) draws vary.
+#                           only the (logit-scale) draws of each
+#                           country's prevalence vary.
 #            The 194 countries are the whole population rather than a sample,
 #            so this version reflects only the uncertainty in each country's
 #            estimate, not differences between the countries in a group.
-#            Same seed, 1,000 repetitions, population 15+ weights and [0, 1]
-#            bounds as B8. B8 and its outputs are not changed.
+#            Same seed, 1,000 repetitions, population 15+ weights and
+#            logit-scale draws as B8. B8 and its outputs are not changed.
 #
 #  How to read
 #    width_ratio = width of this CI / width of the B8 CI. Values well below 1
@@ -39,7 +41,7 @@ b8_cis    <- load_data("group_CIs")
 
 # Same input and row order as B8
 ci_input <- all_tiers %>%
-  select(country_code, prevalence, se, tier, pop_15plus, m49_region, m49_sub_region, income_group) %>%
+  select(country_code, prevalence, se, se_logit, tier, pop_15plus, m49_region, m49_sub_region, income_group) %>%
   arrange(tier, country_code)
 
 
@@ -54,7 +56,7 @@ boot_group_ci_fixed <- function(data, group_var) {
   set.seed(seed)
   boot <- lapply(1:n_boot, function(b) {
     bd <- data %>%
-      mutate(boot_prev = pmin(pmax(rnorm(n(), mean = prevalence, sd = se), 0), 1))
+      mutate(boot_prev = plogis(rnorm(n(), mean = logit_c(prevalence), sd = se_logit)))   # logit scale, as B8
     bind_rows(
       bd %>% group_by(group = .data[[group_var]]) %>%
         summarise(prev = weighted.mean(boot_prev, pop_15plus), .groups = "drop"),

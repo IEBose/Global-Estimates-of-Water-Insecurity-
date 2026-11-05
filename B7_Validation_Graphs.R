@@ -10,8 +10,8 @@
 #              Panel d  Source of estimates (observed / individual / country-level)
 #                       by share of countries and of population 15+ (Figure 5 only)
 #            Versions: individual ENET (Figure 5, main), individual XGB,
-#            country ENET (Figure S12), country XGB.
-#            Main figures (Figure 5, S12) show the 70 countries predicted in
+#            country ENET (Figure S13), country XGB.
+#            Main figures (Figure 5, S13) show the 70 countries predicted in
 #            5-fold LCO CV, with statistics for those 70. Supplementary versions
 #            ("_all76") add the 6 hold-out countries (triangles), with statistics
 #            for all 76; B7_calibration_statistics.csv gives every set
@@ -23,11 +23,12 @@
 #            data/country_preds_enet.rds, data/wb_clean.rds
 #  Outputs : figures/B7_fig5_validation_individual_enet.png/.pdf (+3-panel version; LCO CV 70)
 #            figures/B7_fig5_validation_individual_enet_all76.png (supplement, all 76)
-#            figures/B7_figS12_validation_country_enet_all76.png (supplement, all 76)
-#            figures/B7_validation_individual_xgb.png, B7_figS12_validation_country_enet.png,
+#            figures/B7_figS13_validation_country_enet_all76.png (supplement, all 76)
+#            figures/B7_validation_individual_xgb.png, B7_figS13_validation_country_enet.png,
 #            B7_validation_country_xgb.png
 #            B7_panel_c_model_region_*.png (panel c by model region; for interest)
-#            B7_figS11_residuals_by_income_group.png (Figure S11) / B7_residuals_by_income_group.csv
+#            B7_figS11_residuals_by_model_region.png (Figure S11; LCO CV) / B7_residuals_by_model_region_lco.csv
+#            B7_figS12_residuals_by_income_group.png (Figure S12) / B7_residuals_by_income_group.csv
 #            tables/B7_calibration_statistics.csv
 #
 #  How to read the calibration statistics (printed on panel a and saved):
@@ -266,13 +267,13 @@ country_oos <- function(pred_col) {
     transmute(country_code = Country_Code, m49_region, oos_source, observed = Mod_high_WI, predicted = .data[[pred_col]]) %>%
     filter(!is.na(predicted))
 }
-# Figure S12: country-level ENET, LCO CV (70) as Figure 5; all-76 version alongside
+# Figure S13: country-level ENET, LCO CV (70) as Figure 5; all-76 version alongside
 save_fig(three_panel(build_panels(lco_only(country_oos("oos_enet")),
                                   "Leave-country-out cross-validation (Elastic Net, country-level)")),
-         "B7_figS12_validation_country_enet.png", width = 190, height = 200, units = "mm", dpi = 600)
+         "B7_figS13_validation_country_enet.png", width = 190, height = 200, units = "mm", dpi = 600)
 save_fig(three_panel(build_panels(country_oos("oos_enet"),
                                   "Out-of-sample validation incl. hold-outs (Elastic Net, country-level)")),
-         "B7_figS12_validation_country_enet_all76.png", width = 190, height = 200, units = "mm", dpi = 600)
+         "B7_figS13_validation_country_enet_all76.png", width = 190, height = 200, units = "mm", dpi = 600)
 save_fig(three_panel(build_panels(lco_only(country_oos("oos_xgb")),
                                   "Leave-country-out cross-validation (XGBoost, country-level)")),
          "B7_validation_country_xgb.png", width = 190, height = 200, units = "mm", dpi = 600)
@@ -334,7 +335,56 @@ save_fig((p_c_ind_model / p_c_ctry_model) + plot_layout(guides = "collect") & th
          "B7_panel_c_model_region_both.png", width = 180, height = 230, units = "mm", dpi = 600)
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 5. RESIDUALS BY INCOME GROUP (supplement)
+# 5. RESIDUALS BY MODEL REGION, LCO CV (Figure S11)
+# ══════════════════════════════════════════════════════════════════════════════
+# Predicted - observed prevalence by model region (region_final), LCO CV only
+# (70 countries), for the individual and country-level Elastic Net; built like
+# Figure S12 (income group). Regions in a fixed geographic order (African
+# regions together); this order is for the figure only, region_final_levels in
+# 00_setup.R (used by the models) is not changed.
+
+model_region_fig_order <- c("Eastern Africa", "Middle Africa", "Southern Africa", "Western Africa",
+                            "MENA", "Southern Asia", "East & SE Asia", "Latin America",
+                            "N. America, Europe & Australia")
+stopifnot(setequal(model_region_fig_order, region_final_levels))
+
+region_resid <- bind_rows(
+  lco_only(ind_oos %>% transmute(region_final, oos_source, observed, predicted = pred_enet)) %>%
+    mutate(model = "Individual-level Elastic Net"),
+  lco_only(country_df_oos %>% transmute(region_final, oos_source, observed = Mod_high_WI, predicted = oos_enet)) %>%
+    mutate(model = "Country-level Elastic Net")
+) %>%
+  mutate(residual = predicted - observed,
+         region_final = factor(as.character(region_final), levels = model_region_fig_order),
+         model = factor(model, levels = c("Individual-level Elastic Net", "Country-level Elastic Net")))
+
+region_summary <- region_resid %>%
+  group_by(model, region_final) %>%
+  summarise(n_countries = n(), median_residual = median(residual), mean_bias = mean(residual),
+            MAE = mean(abs(residual)), .groups = "drop")
+save_table(region_summary, "B7_residuals_by_model_region_lco")
+
+region_n_lco <- region_resid %>% count(model, region_final)
+p_region_lco <- region_resid %>%
+  ggplot(aes(x = region_final, y = residual, fill = region_final)) +
+  geom_hline(yintercept = 0, linetype = "dashed", colour = "grey45", linewidth = 0.4) +
+  geom_boxplot(width = 0.55, outlier.shape = NA, colour = "grey20", linewidth = 0.3, alpha = 0.65) +
+  geom_jitter(shape = 21, colour = "white", stroke = 0.25, width = 0.15, height = 0, size = 1.8, alpha = 0.9) +
+  geom_text(data = region_n_lco, aes(x = region_final, y = -Inf, label = paste0("n=", n)),
+            inherit.aes = FALSE, vjust = -0.5, size = 2.7, colour = "grey30") +
+  facet_wrap(~ model, ncol = 1) +
+  scale_x_discrete(drop = FALSE) +
+  scale_fill_manual(values = model_region_col, guide = "none") +
+  scale_y_continuous(labels = percent_format(accuracy = 1)) +
+  labs(title = "Prediction residuals by model region (LCO CV, 70 countries)",
+       x = NULL, y = "Predicted - observed") +
+  theme_nature() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+save_fig(p_region_lco, "B7_figS11_residuals_by_model_region.png", width = 180, height = 190, units = "mm", dpi = 600)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 6. RESIDUALS BY INCOME GROUP (Figure S12)
 # ══════════════════════════════════════════════════════════════════════════════
 # Predicted - observed prevalence by World Bank income group (FY27), LCO CV
 # (70 countries), for the individual and country-level Elastic Net. Shows
@@ -375,7 +425,7 @@ p_income <- income_resid %>%
        x = NULL, y = "Predicted - observed") +
   theme_nature() +
   theme(axis.text.x = element_text(angle = 20, hjust = 1))
-save_fig(p_income, "B7_figS11_residuals_by_income_group.png", width = 160, height = 180, units = "mm", dpi = 600)
+save_fig(p_income, "B7_figS12_residuals_by_income_group.png", width = 160, height = 180, units = "mm", dpi = 600)
 
 save_table(bind_rows(calibration_stats), "B7_calibration_statistics")
 

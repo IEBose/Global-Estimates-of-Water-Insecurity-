@@ -11,7 +11,8 @@
 #               replacement WITHIN each model region (so every region stays in
 #               the model), and PSUs are resampled within each selected country
 #               (individual model). The country model's observed prevalences are
-#               drawn from Normal(estimate, survey SE). Models are refitted.
+#               drawn on the logit scale, Normal(logit(estimate), survey SE_logit).
+#               Models are refitted.
 #   "residual"  Residual bootstrap (the outline: fit, compute residuals, add
 #               resampled residuals to the fitted values, refit, repeat).
 #                 Country model: new logit prevalence = fitted value + resampled
@@ -22,17 +23,22 @@
 #                   scale) — the binary-outcome version of the same idea.
 #
 #  In every repetition, for both methods:
-#    Tier 1 (observed, 76)        prevalence drawn from Normal(estimate, survey SE)
+#    Tier 1 (observed, 76)        prevalence drawn on the logit scale from
+#                                 Normal(logit(estimate), survey SE_logit)
 #    Tier 2 (individual, 85)      refitted individual ENET -> respondent
 #                                 probabilities; PSUs resampled within the country
 #                                 (sampling uncertainty); + one resampled
-#                                 out-of-sample country residual
+#                                 out-of-sample country residual ON THE LOGIT SCALE
 #    Tier 3 (country-level, 33)   refitted country ENET + one resampled
-#                                 out-of-sample country residual
+#                                 out-of-sample country residual ON THE LOGIT SCALE
+#    Residuals are added to the logit of the prevalence and transformed back, so
+#    every draw stays between 0 and 1 without clipping and intervals narrow
+#    towards 0% and 100% (previously residuals were added on the prevalence
+#    scale and draws below 0 were set to 0, giving many lower bounds of 0%).
 #    Groups                       population-weighted (15+, 2025) means of the
 #                                 194 countries in that repetition; countries are
 #                                 NOT resampled at this step
-#  CI = 2.5th and 97.5th percentiles across repetitions, bounded to [0, 1].
+#  CI = 2.5th and 97.5th percentiles across repetitions.
 #  Point estimates are those from B8 (unchanged); the bootstrap median is also
 #  saved to show any shift.
 #
@@ -46,14 +52,14 @@
 #    * The residual bootstrap assumes errors of similar size in all countries;
 #      the case bootstrap does not.
 #
-#  Depends : A4, B1, B2, B4, B5, B8 (B10 for Figure S19; run B10 before B11)
+#  Depends : A4, B1, B2, B4, B5, B8 (B10 for Figure S20; run B10 before B11)
 #  Outputs : data/group_UIs_B11.rds (MAIN group 95% UIs, used by C1)
 #            tables/B11_ui_<group>.csv
 #            tables/B11_tableS10_all_country_estimates.csv (Table S10: 194 countries
-#              with 95% UIs; observed = survey CI ± 1.96 SE; Table S9 flags)
+#              with 95% UIs; observed = survey logit CI, as Stata svy: proportion; Table S9 flags)
 #            tables/B11_country_CIs_<method>.csv
 #            tables/B11_group_CIs_comparison.csv (B8, B10 if run, case, residual)
-#            figures/B11_figS19_uncertainty_sensitivity.png (Figure S19: regions and
+#            figures/B11_figS20_uncertainty_sensitivity.png (Figure S20: regions and
 #              income groups), B11_group_CI_comparison_sub_region.png
 #            data/B11_country_draws_<method>.rds (194 x n_boot matrix of draws)
 #  Main method for the group uncertainty intervals (C1 uses group_UIs_B11.rds
@@ -132,7 +138,8 @@ codes_t3 <- all_pred$iso3
 eta_c_fitted <- predict(enet_c, X_c, type = "link")[, 1]
 
 # ── Out-of-sample country residuals (76 each) ──
-# prevalence scale: added to predictions (step 6); logit scale: residual method
+# logit scale: added to the predictions (Tiers 2 and 3) and used by the residual
+# method; prevalence scale kept for reference only
 res_i_prev  <- ind_oos$observed - ind_oos$pred_enet
 res_i_logit <- logit(ind_oos$observed) - logit(ind_oos$pred_enet)
 res_c_prev  <- ctry_oos$Mod_high_WI - ctry_oos$oos_enet
@@ -195,7 +202,7 @@ refit_country <- function(method) {
   if (method == "case") {
     mult <- numeric(length(obs_c))
     for (idx in countries_by_region_c) mult[idx] <- mult[idx] + draw_counts(idx)
-    y_b  <- logit(clip01(rnorm(length(obs_c), obs_c, se_c)))      # survey sampling in the outcome
+    y_b  <- rnorm(length(obs_c), logit(obs_c), logit_se(obs_c, se_c))   # survey sampling in the outcome (logit scale)
     keep <- mult > 0
     glmnet(X_c[keep, ], y_b[keep], weights = mult[keep],
            alpha = settings_c$best_alpha_c, lambda = settings_c$best_lambda_c)
@@ -207,7 +214,7 @@ refit_country <- function(method) {
 
 one_rep <- function(method) {
   # Tier 1: survey sampling uncertainty
-  prev_t1 <- clip01(rnorm(nrow(t1_tab), t1_tab$prevalence, t1_tab$se))
+  prev_t1 <- plogis(rnorm(nrow(t1_tab), logit(t1_tab$prevalence), logit_se(t1_tab$prevalence, t1_tab$se)))
 
   # Tier 2: refitted individual model + PSU resampling + country residual
   m_i   <- refit_individual(method)
@@ -217,12 +224,12 @@ one_rep <- function(method) {
     k <- draw_counts(ps)
     sum(k * WP_psu[ps]) / sum(k * W_psu_new[ps])
   }, numeric(1))
-  prev_t2 <- clip01(prev_t2 + sample(res_i_prev, length(prev_t2), replace = TRUE))
+  prev_t2 <- plogis(logit(prev_t2) + sample(res_i_logit, length(prev_t2), replace = TRUE))
 
   # Tier 3: refitted country model + country residual
   m_c <- refit_country(method)
-  prev_t3 <- clip01(plogis(predict(m_c, X_t3, type = "link")[, 1]) +
-                      sample(res_c_prev, length(codes_t3), replace = TRUE))
+  prev_t3 <- plogis(predict(m_c, X_t3, type = "link")[, 1] +
+                      sample(res_c_logit, length(codes_t3), replace = TRUE))
 
   c(setNames(prev_t1, t1_tab$country_code), setNames(prev_t2, names(psus_by_country)),
     setNames(prev_t3, codes_t3))
@@ -363,8 +370,9 @@ if ("case" %in% names(draws)) {
   save_table(group_uis$income,     "B11_ui_income_group")
 
   # Table S10: all 194 countries with 95% UIs.
-  #   Observed countries: survey-design 95% CI, estimate ± 1.96 SE (Taylor
-  #     linearisation; exact, as in B8 / Stata) — sampling uncertainty only.
+  #   Observed countries: survey-design 95% CI from B8 (logit interval with
+  #     design df, as Stata svy: proportion; SE by Taylor linearisation)
+  #     — sampling uncertainty only.
   #   Predicted countries: country bootstrap with model refits (case method).
   #   table_S9_flags: the reasons each country is flagged in Table S9 (B8).
   s10 <- readr::read_csv(file.path(dir_tables, "B8_all_country_estimates.csv"), show_col_types = FALSE)
@@ -376,8 +384,8 @@ if ("case" %in% names(draws)) {
               by = "country_code") %>%
     mutate(ui_lower  = ifelse(tier == "Observed", ci_lower, ui_lower_boot),
            ui_upper  = ifelse(tier == "Observed", ci_upper, ui_upper_boot),
-           ui_method = ifelse(tier == "Observed", "Survey design (estimate ± 1.96 SE)",
-                              "Country bootstrap with model refits")) %>%
+           ui_method = ifelse(tier == "Observed", "Survey design (logit CI, as Stata svy: proportion)",
+                              "Country bootstrap with model refits (residuals on the logit scale)")) %>%
     left_join(flags, by = "country_code") %>%
     mutate(table_S9_flags = coalesce(table_S9_flags, "")) %>%
     select(-any_of(c("ci_lower", "ci_upper", "ci_method", "individual_pred_source",
@@ -417,7 +425,7 @@ p_inc <- plot_compare(comparison %>% filter(grouping == "income_group", group !=
 p_sub <- plot_compare(comparison %>% filter(grouping == "m49_sub_region"), "M49 sub-regions")
 
 save_fig((p_reg / p_inc) + plot_layout(guides = "collect", heights = c(6, 5)) & theme(legend.position = "bottom"),
-         "B11_figS19_uncertainty_sensitivity.png", width = 190, height = 240, units = "mm", dpi = 300)
+         "B11_figS20_uncertainty_sensitivity.png", width = 190, height = 240, units = "mm", dpi = 300)
 save_fig(p_sub, "B11_group_CI_comparison_sub_region.png", width = 190, height = 260, units = "mm", dpi = 300)
 
 stop_timer()

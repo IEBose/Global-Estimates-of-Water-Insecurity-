@@ -1,7 +1,7 @@
 ################################################################################
 #  C4_UN_boundary_maps.R — ALL MAPS ON UN BOUNDARIES, WITH DISPUTED AREAS
 #
-#  Purpose : Redraw every map in the paper on the UN Geospatial boundaries
+#  Purpose : Alternative versions of every map in the paper on the UN Geospatial boundaries
 #            (BNDA_simplified), with disputed or undetermined areas outlined
 #            with dashed lines and filled with the estimate set in
 #            `disputed_rules` (section 1):
@@ -10,9 +10,9 @@
 #              Figure 3    bivariate maps: prevalence x A) water stress,
 #                          B) lack of basic drinking water, C) lack of SMDWS
 #              Figure S7   bivariate: prevalence x water not available when needed
-#            These are the PAPER versions. Same data, colours and class
-#            thresholds as C1 (maps) and C2 (bivariate maps), which still make
-#            alternative versions (C1_alt_*, C2_alt_*) as a backup.
+#            ALTERNATIVE versions (C4_alt_*): the paper maps are now drawn by
+#            C5 to the WHO map SOPs. Same data, colours and class thresholds
+#            as C1 (maps), C2 (bivariate maps) and C5.
 #
 #  Disputed areas (section 1, `disputed_rules`)
 #    * Polygons listed in the rules take the estimate (and, for the bivariate
@@ -29,9 +29,9 @@
 #
 #  Depends : B8 (all_tiers), A1 (wb_clean)
 #  Inputs  : UN BNDA_simplified boundaries (INPUT/maps; downloaded once)
-#  Outputs : figures/C4_fig1_map_prevalence_source.png (Figure 1),
-#            C4_fig3_bivariate_maps.png (Figure 3), C4_figS07_bivariate_availability.png
-#            (Figure S7); figures/C4_panels/ (each map and key on its own);
+#  Outputs : figures/C4_alt_map_prevalence_source.png, C4_alt_bivariate_maps.png,
+#            C4_alt_bivariate_availability.png (alternatives to Figures 1, 3, S7;
+#            paper versions from C5); figures/C4_panels/ (each map and key);
 #            tables/C4_disputed_polygons_check.csv; data/C4_map_plots.rds
 #
 #  What to look out for:
@@ -236,11 +236,11 @@ p_map_source <- ggplot(world_map) +
 
 # Combined figure: caption once, under panel b
 save_fig((p_map_prev + labs(caption = NULL)) / p_map_source + plot_layout(heights = c(1, 0.8)),
-         "C4_fig1_map_prevalence_source.png", width = 11, height = 12.5, dpi = 300)
+         "C4_alt_map_prevalence_source.png", width = 11, height = 12.5, dpi = 300)
 
 dir.create(file.path(dir_figures, "C4_panels"), showWarnings = FALSE)
-save_fig(p_map_prev,   file.path("C4_panels", "C4_fig1a_map_prevalence.png"), width = 11, height = 7, dpi = 300)
-save_fig(p_map_source, file.path("C4_panels", "C4_fig1b_map_data_source.png"), width = 11, height = 6, dpi = 300)
+save_fig(p_map_prev,   file.path("C4_panels", "C4_alt_map_prevalence.png"), width = 11, height = 7, dpi = 300)
+save_fig(p_map_source, file.path("C4_panels", "C4_alt_map_data_source.png"), width = 11, height = 6, dpi = 300)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -316,13 +316,13 @@ with_key <- function(m, caption = FALSE) {
 }
 save_fig(with_key(p_stress) / with_key(p_basic) / with_key(p_managed, caption = TRUE) +
            plot_layout(heights = c(1, 1, 1.12)),
-         "C4_fig3_bivariate_maps.png", width = 12, height = 21, dpi = 600)                    # Figure 3
+         "C4_alt_bivariate_maps.png", width = 12, height = 21, dpi = 600)                    # alternative to Figure 3
 # Figure S7: water not available when needed
-save_fig(p_avail$combined, "C4_figS07_bivariate_availability.png", width = 12, height = 7.5, dpi = 600)
+save_fig(p_avail$combined, "C4_alt_bivariate_availability.png", width = 12, height = 7.5, dpi = 600)
 # Each Figure 3 map on its own, with key and caption
-save_fig(p_stress$combined,  file.path("C4_panels", "C4_fig3A_bivariate_water_stress.png"), width = 12, height = 7.5, dpi = 600)
-save_fig(p_basic$combined,   file.path("C4_panels", "C4_fig3B_bivariate_basic_water.png"),  width = 12, height = 7.5, dpi = 600)
-save_fig(p_managed$combined, file.path("C4_panels", "C4_fig3C_bivariate_smdws.png"),        width = 12, height = 7.5, dpi = 600)
+save_fig(p_stress$combined,  file.path("C4_panels", "C4_alt_bivariate_water_stress.png"), width = 12, height = 7.5, dpi = 600)
+save_fig(p_basic$combined,   file.path("C4_panels", "C4_alt_bivariate_basic_water.png"),  width = 12, height = 7.5, dpi = 600)
+save_fig(p_managed$combined, file.path("C4_panels", "C4_alt_bivariate_smdws.png"),        width = 12, height = 7.5, dpi = 600)
 
 maps <- list(stress = p_stress, basic = p_basic, smdws = p_managed, availability = p_avail)
 for (nm in names(maps)) {

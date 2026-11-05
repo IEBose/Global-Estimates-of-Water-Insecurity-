@@ -6,7 +6,9 @@
 #            for GNI (partial correlation):
 #              Figure 4    WI vs A) water stress (log), B) no basic drinking
 #                          water, C) no SMDWS, C1) water not available when
-#                          needed — all 194 countries
+#                          needed, C2) not on premises, C3) not free from
+#                          contamination — all 194 countries; each panel shows
+#                          overall r and (observed-only r)
 #              Figure S4   GNI-adjusted (partial) correlations, 6 indicators
 #                          (A, B, C, C1 + C2 not on premises, C3 not free from
 #                          contamination), all 194 countries
@@ -38,7 +40,7 @@
 #            Paper figures (section 3): C3_fig4_correlations.png,
 #            C3_figS04_partial_correlations_gni.png, C3_figS05_correlations_observed_only.png,
 #            C3_figS06_partial_correlations_gni_observed_only.png;
-#            also C3_all_correlations.png (6 raw panels, all countries), C3_wi_vs_gni*.png,
+#            also C3_wi_vs_gni*.png (C3_all_correlations.png dropped: same as Figure 4),
 #            tables/C3_wi_correlations_observed_only.csv
 ################################################################################
 
@@ -129,7 +131,9 @@ theme_scatter <- theme_bw(base_size = 11) +
         legend.title = element_text(size = 9, face = "bold"), legend.text = element_text(size = 8),
         legend.key.size = unit(0.4, "cm"), plot.margin = margin(5, 8, 5, 5))
 
-make_scatter <- function(cr, xvar, xlab, title_text, partial = FALSE, diag_line = FALSE) {
+# obs_label = TRUE (Figure 4): "Overall r = , n =" top left and, in italics,
+# "(Observed only r = , n =)" top right (countries with observed WI only)
+make_scatter <- function(cr, xvar, xlab, title_text, partial = FALSE, diag_line = FALSE, obs_label = FALSE) {
   d     <- if (partial) cr$p else cr$d
   yvar  <- if (partial) "res_y" else "wi"
   xcol  <- if (partial) "res_x" else xvar
@@ -140,7 +144,13 @@ make_scatter <- function(cr, xvar, xlab, title_text, partial = FALSE, diag_line 
                            region_name = factor(m49_region_levels, levels = m49_region_levels))
 
   p <- ggplot(d, aes(x = .data[[xcol]], y = .data[[yvar]])) + theme_scatter
-  if (diag_line) p <- p + geom_abline(intercept = 0, slope = 1, colour = "grey70", linetype = "dashed", linewidth = 0.5)
+  if (diag_line && !obs_label) p <- p + geom_abline(intercept = 0, slope = 1, colour = "grey70", linetype = "dashed", linewidth = 0.5)
+  if (diag_line && obs_label) {   # x = y line within the data range (this panel is not clipped)
+    lims <- c(max(min(d[[xcol]], na.rm = TRUE), min(d[[yvar]], na.rm = TRUE)),
+              min(max(d[[xcol]], na.rm = TRUE), max(d[[yvar]], na.rm = TRUE)))
+    if (lims[1] < lims[2]) p <- p + annotate("segment", x = lims[1], xend = lims[2], y = lims[1], yend = lims[2],
+                                             colour = "grey70", linetype = "dashed", linewidth = 0.5)
+  }
   if (partial)   p <- p + geom_hline(yintercept = 0, colour = "grey85") + geom_vline(xintercept = 0, colour = "grey85")
 
   # Line legend: the same three entries in every panel, so that panels combined
@@ -178,7 +188,16 @@ make_scatter <- function(cr, xvar, xlab, title_text, partial = FALSE, diag_line 
            colour = guide_legend(order = 2, override.aes = list(fill = "white", shape = 21, size = 3.2,
                                                                 stroke = 1.3, alpha = 1))) +
     labs(x = xlab, y = ylab, title = title_text,
-         subtitle = sprintf("%s = %.2f, n = %d", if (partial) "partial r (GNI adjusted)" else "r", r_val, nrow(d)))
+         subtitle = sprintf("%s = %.2f, n = %d",
+                            if (partial) "partial r (GNI adjusted)" else if (obs_label) "Overall r" else "r",
+                            r_val, nrow(d))) +
+    { if (obs_label && !partial) {
+        d_obs <- d[d$source_type == "Observed" & complete.cases(d[[xcol]], d[[yvar]]), ]
+        list(annotate("text", x = Inf, y = Inf, hjust = 1, vjust = -1.05, size = 11 / .pt, fontface = "italic",
+                      label = sprintf("(Observed only r = %.2f, n = %d)",
+                                      cor(d_obs[[xcol]], d_obs[[yvar]]), nrow(d_obs))),
+             coord_cartesian(clip = "off"))
+      } else NULL }
 }
 
 collect_bottom <- function(p) p + plot_layout(guides = "collect") &
@@ -234,7 +253,8 @@ save_data(panels, "C3_plots")
 # Panels are labelled as in the paper: A water stress, B no basic drinking water,
 # C no safely managed (SMDWS), C1 not available when needed, C2 not on premises,
 # C3 not free from contamination (C1-C3 are the components of SMDWS).
-#   Figure 4  raw correlations, A-C1, all 194 countries
+#   Figure 4  raw correlations, A-C3, all 194 countries; above each panel "Overall r"
+#             and, in italics, "(Observed only r)" (countries with observed WI)
 #   Figure S4 GNI-adjusted (partial), A-C3, all countries
 #   Figure S5 raw, A-C3, observed countries only
 #   Figure S6 GNI-adjusted, A-C3, observed countries only
@@ -246,14 +266,15 @@ tag_panels <- function(pl) Map(function(p, t) p + labs(tag = t) +
                                  theme(plot.tag = element_text(face = "bold", size = 14)),
                                pl, panel_tags[seq_along(pl)])
 
-panel_sets <- function(cr, hide_predicted = FALSE) {
+panel_sets <- function(cr, hide_predicted = FALSE, obs_label = FALSE) {
+  ms <- function(...) make_scatter(..., obs_label = obs_label)
   raw <- list(
-    make_scatter(cr$stress,   "stress",             "Water stress (log)",              "Water stress"),
-    make_scatter(cr$basic,    "gap_basic",          "No basic drinking water (%)",     "No basic drinking water", diag_line = TRUE),
-    make_scatter(cr$safely,   "gap_safely_managed", "No safely managed service (%)",   "No safely managed service", diag_line = TRUE),
-    make_scatter(cr$avail,    "gap_available",      "Not available when needed (%)",   "Not available when needed", diag_line = TRUE),
-    make_scatter(cr$premises, "gap_on_premises",    "Not on premises (%)",             "Not on premises", diag_line = TRUE),
-    make_scatter(cr$contam,   "gap_free_contam",    "Not free from contamination (%)", "Not free from contamination", diag_line = TRUE))
+    ms(cr$stress,   "stress",             "Water stress (log)",              "Water stress"),
+    ms(cr$basic,    "gap_basic",          "No basic drinking water (%)",     "No basic drinking water", diag_line = TRUE),
+    ms(cr$safely,   "gap_safely_managed", "No safely managed service (%)",   "No safely managed service", diag_line = TRUE),
+    ms(cr$avail,    "gap_available",      "Not available when needed (%)",   "Not available when needed", diag_line = TRUE),
+    ms(cr$premises, "gap_on_premises",    "Not on premises (%)",             "Not on premises", diag_line = TRUE),
+    ms(cr$contam,   "gap_free_contam",    "Not free from contamination (%)", "Not free from contamination", diag_line = TRUE))
   adj <- list(
     pg(cr$stress,   "Water stress (log) | GNI",          "Water stress"),
     pg(cr$basic,    "No basic drinking water | GNI",     "No basic drinking water"),
@@ -277,12 +298,11 @@ save_grid <- function(pl, file, title, ncol = 3) {
 
 # All 194 countries
 sets_all <- panel_sets(cors)
-save_grid(sets_all$raw[1:4], "C3_fig4_correlations.png",
-          "Correlations with water insecurity: all 194 countries (observed and predicted)", ncol = 2)   # Figure 4
+sets_fig4 <- panel_sets(cors, obs_label = TRUE)   # with "(Observed only r = , n =)" labels
+save_grid(sets_fig4$raw, "C3_fig4_correlations.png",
+          "Correlations with water insecurity: all 194 countries (observed and predicted)")   # Figure 4
 save_grid(sets_all$adj, "C3_figS04_partial_correlations_gni.png",
           "GNI-adjusted (partial) correlations: all 194 countries")                                     # Figure S4
-save_grid(sets_all$raw, "C3_all_correlations.png",
-          "Correlations with water insecurity: all 194 countries (observed and predicted)")             # all 6, not in paper
 save_fig(sets_all$gni, "C3_wi_vs_gni_all_countries.png", width = 6.5, height = 6, dpi = 300)
 
 # Observed countries only (Tier 1)

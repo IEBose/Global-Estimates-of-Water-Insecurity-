@@ -35,9 +35,9 @@
 #    Figure S8  ROC curves, hold-out countries      B1_figS08_roc_holdouts.png
 #    Figure S9  Pred vs obs (ENET & XGB, 76)        B1_figS09_pred_vs_obs_enet_xgb.png
 #    Figure S10 Pred vs obs all 4 models (76)       B1_figS10_pred_vs_obs_all_models.png
-#    Figure S14 SHAP importance (XGB)               B1_figS14_shap_beeswarm_xgb.png (+ grouped)
-#    Figure S15 ENET coefficients without WD        B1_figS15_enet_coef_noWD.png
-#    Figure S16 SHAP without WD                     B1_figS16_shap_noWD.png
+#    Figure S15 SHAP importance (XGB)               B1_figS15_shap_beeswarm_xgb.png (+ grouped)
+#    Figure S16 ENET coefficients without WD        B1_figS16_enet_coef_noWD.png
+#    Figure S17 SHAP without WD                     B1_figS17_shap_noWD.png
 #    Table S5   Test (hold-out) metrics             B1_tableS05_holdout_metrics.csv
 #    Table S6   LCO CV metrics (individual level),  B1_tableS06_lco_cv_metrics.csv
 #               mean (SD) across folds + pooled     (footnote: ICC, B1_mixed_effects_ICC.csv)
@@ -237,7 +237,8 @@ fit_rf <- function(train_data, w, importance = "none") {
   ranger(iwise12_imp ~ ., data = train_data %>% select(all_of(c("iwise12_imp", all_predictors))),
          case.weights = w, num.trees = rf_settings$num.trees, mtry = rf_settings$mtry,
          min.node.size = rf_settings$min.node.size, probability = TRUE,
-         importance = importance, seed = seed)
+         importance = importance, seed = seed,
+         num.threads = 1)   # single thread: with a seed, results are then the same on every computer
 }
 
 rf_model <- fit_rf(train_df, w_train, importance = "impurity")
@@ -259,10 +260,12 @@ save_table(rf_importance, "B1_rf_feature_importance")
 w_train_scaled <- w_train / mean(w_train)
 dtrain <- xgb.DMatrix(data = X_train, label = y_train, weight = w_train_scaled)
 
+# nthread = 1 and an explicit tree_method make the trees identical on every
+# computer (with several threads, results depend on the number of CPU cores)
 xgb_params <- list(objective = "binary:logistic", eval_metric = "auc",
                    eta = 0.05, max_depth = 6, subsample = 0.8,
                    colsample_bytree = 0.8, min_child_weight = 5, gamma = 1,
-                   seed = seed)
+                   tree_method = "hist", nthread = 1, seed = seed)
 
 set.seed(seed)
 xgb_cv <- xgb.cv(params = xgb_params, data = dtrain, nrounds = 1000, nfold = 5,
@@ -736,7 +739,7 @@ save_table(region_calibration, "B1_sensitivity_region_calibration")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 11. FEATURE IMPORTANCE: ENET COEFFICIENTS (Figure 6) AND SHAP (Figure S14)
+# 11. FEATURE IMPORTANCE: ENET COEFFICIENTS (Figure 6) AND SHAP (Figure S15)
 # ══════════════════════════════════════════════════════════════════════════════
 
 feature_type <- c(
@@ -769,7 +772,9 @@ get_type <- function(x) ifelse(x %in% names(feature_type), feature_type[x], "Oth
 p_coef_data <- enet_coefs %>%
   head(20) %>%
   mutate(type = factor(get_type(feature_label), levels = type_levels),
-         direction = ifelse(coefficient > 0, "Increases risk", "Decreases risk")) %>%
+         # Figure 6 only: "Water & WASH" shown as "Water" (grouped SHAP figure keeps "Water & WASH")
+         type = fct_recode(type, "Water" = "Water & WASH"),
+         direction = ifelse(coefficient > 0, "Increases predicted risk", "Decreases predicted risk")) %>%
   arrange(type, desc(abs(coefficient))) %>%
   mutate(feature_label = fct_inorder(feature_label), y_pos = row_number())
 
@@ -791,7 +796,7 @@ p_fig6 <- ggplot(p_coef_data, aes(x = coefficient, y = feature_label, fill = dir
                inherit.aes = FALSE, linewidth = 0.4, colour = "grey30") +
   geom_text(data = group_boundaries, aes(x = bracket_x + max_coef * 0.03, y = y_mid, label = type),
             inherit.aes = FALSE, hjust = 0, size = 2.5, fontface = "bold", colour = "grey30") +
-  scale_fill_manual(values = c("Increases risk" = "darkred", "Decreases risk" = "navy")) +
+  scale_fill_manual(values = c("Increases predicted risk" = "darkred", "Decreases predicted risk" = "navy")) +
   coord_cartesian(clip = "off") +
   labs(title = "Elastic Net coefficients", x = "Coefficient (log-odds scale)", y = NULL, fill = NULL) +
   theme_minimal() +
@@ -807,7 +812,7 @@ colnames(shap$S) <- colnames(shap$X) <- relabel(colnames(shap$S))
 
 save_fig(sv_importance(shap, kind = "beeswarm", max_display = 15) +
            labs(title = "SHAP Feature Importance - XGBoost") + theme_minimal(),
-         "B1_figS14_shap_beeswarm_xgb.png", width = 10, height = 8, dpi = 300)
+         "B1_figS15_shap_beeswarm_xgb.png", width = 10, height = 8, dpi = 300)
 save_fig(sv_importance(shap, kind = "bar", max_display = 15) +
            labs(title = "Mean |SHAP| - XGBoost") + theme_minimal(),
          "B1_shap_bar_xgb.png", width = 8, height = 6, dpi = 300)
@@ -861,7 +866,7 @@ p_shap_grouped <- ggplot(shap_plot_sample, aes(x = shap_value, y = feature, colo
   labs(title = "XGBoost SHAP values", x = "SHAP value (impact on prediction)", y = NULL) +
   theme_minimal() +
   theme(legend.position = "bottom", plot.margin = margin(5, 120, 5, 5))
-save_fig(p_shap_grouped, "B1_figS14_shap_beeswarm_grouped.png", width = 10, height = 8, dpi = 300)
+save_fig(p_shap_grouped, "B1_figS15_shap_beeswarm_grouped.png", width = 10, height = 8, dpi = 300)
 
 # ENET contributions in SHAP form (coefficient x standardised value) for comparison
 sv_enet <- shapviz(object = sweep(X_sample, 2, coef(enet_final)[-1, 1], "*"),
@@ -873,7 +878,7 @@ save_fig(sv_importance(sv_enet, kind = "beeswarm", max_display = 15) +
 
 
 # ══════════════════════════════════════════════════════════════════════════════
-# 12. SENSITIVITY: EXCLUDING WATER DISSATISFACTION (Figures S15, S16)
+# 12. SENSITIVITY: EXCLUDING WATER DISSATISFACTION (Figures S16, S17)
 # ══════════════════════════════════════════════════════════════════════════════
 # Water dissatisfaction is subjective and related to (but not the same as) water
 # insecurity. Refit ENET and XGB without it and compare.
@@ -950,7 +955,7 @@ save_table(tibble(model = c("pred_enet_full", "pred_enet_nowd", "pred_xgb_full",
              ungroup(),
            "B1_sensitivity_noWD_country_R2_MAE")
 
-# Figure S15: ENET coefficients without WD
+# Figure S16: ENET coefficients without WD
 enet_nowd_coefs <- coef(enet_nowd) %>% as.matrix() %>% as.data.frame() %>%
   rownames_to_column("feature") %>% rename(coefficient = s0) %>%
   filter(coefficient != 0, feature != "(Intercept)") %>%
@@ -960,24 +965,24 @@ enet_nowd_coefs <- coef(enet_nowd) %>% as.matrix() %>% as.data.frame() %>%
 p_coef_nowd <- enet_nowd_coefs %>%
   head(15) %>%
   mutate(feature_label = fct_reorder(feature_label, abs(coefficient)),
-         direction = ifelse(coefficient > 0, "Increases risk", "Decreases risk")) %>%
+         direction = ifelse(coefficient > 0, "Increases predicted risk", "Decreases predicted risk")) %>%
   ggplot(aes(x = coefficient, y = feature_label, fill = direction)) +
   geom_col() +
-  scale_fill_manual(values = c("Increases risk" = "darkred", "Decreases risk" = "navy")) +
+  scale_fill_manual(values = c("Increases predicted risk" = "darkred", "Decreases predicted risk" = "navy")) +
   labs(title = "Elastic Net coefficients (excl. water dissatisfaction)",
        x = "Coefficient (log-odds scale)", y = NULL, fill = NULL) +
   theme_minimal() + theme(legend.position = "bottom")
-save_fig(p_coef_nowd, "B1_figS15_enet_coef_noWD.png", width = 9, height = 7, dpi = 300)
+save_fig(p_coef_nowd, "B1_figS16_enet_coef_noWD.png", width = 9, height = 7, dpi = 300)
 
-# Figure S16: SHAP without WD
+# Figure S17: SHAP without WD
 set.seed(seed)
 X_sample_nowd <- X_train_nowd[sample(nrow(X_train_nowd), min(5000, nrow(X_train_nowd))), ]
 shap_nowd <- shapviz(xgb_nowd, X_pred = X_sample_nowd)
 colnames(shap_nowd$S) <- colnames(shap_nowd$X) <- relabel(colnames(shap_nowd$S))
 p_shap_nowd <- sv_importance(shap_nowd, kind = "beeswarm", max_display = 15) +
   labs(title = "XGBoost SHAP values (excl. water dissatisfaction)") + theme_minimal()
-save_fig(p_shap_nowd, "B1_figS16_shap_noWD.png", width = 10, height = 8, dpi = 300)
-save_fig(p_coef_nowd | p_shap_nowd, "B1_figS15_S16_combined_noWD.png", width = 16, height = 8, dpi = 300)
+save_fig(p_shap_nowd, "B1_figS17_shap_noWD.png", width = 10, height = 8, dpi = 300)
+save_fig(p_coef_nowd | p_shap_nowd, "B1_figS16_S17_combined_noWD.png", width = 16, height = 8, dpi = 300)
 
 # Coefficient shift when WD is removed (largest shifts = predictors that
 # partly carry the WD signal)

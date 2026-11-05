@@ -8,7 +8,7 @@
 #              safely managed drinking water (SMDWS), x water not available
 #              when needed.
 #            ALTERNATIVE VERSIONS: the paper's Figure 3 (A-C) and Figure S7 are
-#            drawn by C4 on UN boundaries with disputed areas; C2 is kept as a
+#            drawn by C5 (UN boundaries, WHO map SOPs); C2 is kept as a
 #            backup (same data, colours and classes).
 #            Water indicators use ORIGINAL values only (wb_clean, not MICE-imputed);
 #            countries without the indicator are shown as "No data".

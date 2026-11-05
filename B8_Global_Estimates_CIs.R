@@ -11,21 +11,25 @@
 #            the figures themselves are drawn in C1-C3.
 #
 #  Uncertainty (95% CI) by tier:
-#    Tier 1  Taylor-series linearisation from the survey design (PSU, strata, weights)
+#    Tier 1  Taylor-series linearisation from the survey design (PSU, strata, weights);
+#            logit 95% CI with design df, as Stata svy: proportion (prop_ci_logit)
 #    Tier 2  sampling (cluster bootstrap of PSUs, 1,000 reps) and model uncertainty
-#            (residual bootstrap, below) combined in quadrature:
-#            SE = sqrt(SE_sampling² + SE_model²); CI = estimate ± 1.96 SE
+#            (residual bootstrap, below) combined in quadrature ON THE LOGIT SCALE:
+#            SE_logit = sqrt(SE_sampling,logit² + SE_model,logit²);
+#            CI = inverse logit(logit(estimate) ± 1.96 SE_logit)
 #    Tier 3  model uncertainty only (residual bootstrap): 2.5th-97.5th percentiles
-#    Residual bootstrap: out-of-sample residuals (observed - predicted country
-#            prevalence) for all 76 observed countries (70 from 5-fold LCO CV
-#            + 6 hold-outs) are resampled and added to the predicted prevalence
-#            (1,000 reps). Each tier uses its own model's residuals:
-#            Tier 2 = individual-level ENET (B1), Tier 3 = country-level ENET (B4).
-#    All CIs bounded to [0, 1].
+#    Residual bootstrap: out-of-sample residuals for all 76 observed countries
+#            (70 from 5-fold LCO CV + 6 hold-outs), on the LOGIT scale
+#            (logit(observed) - logit(predicted)), are resampled, added to the
+#            logit of the predicted prevalence and transformed back (1,000 reps).
+#            Draws therefore stay between 0 and 1 without clipping, and
+#            intervals narrow towards 0% and 100%. Each tier uses its own model's
+#            residuals: Tier 2 = individual-level ENET (B1), Tier 3 = country-level ENET (B4).
 #  Regional / sub-regional / income-group / global CIs: 1,000 bootstrap reps;
 #    in each, countries are resampled with replacement within each group and
-#    each country's prevalence is drawn from Normal(estimate, SE) (bounded to
-#    [0, 1]); the population-weighted mean is taken. CI = 2.5th-97.5th percentiles.
+#    each country's prevalence is drawn on the logit scale, from
+#    Normal(logit(estimate), SE_logit), and transformed back; the
+#    population-weighted mean is taken. CI = 2.5th-97.5th percentiles.
 #    The global CI from the regional bootstrap is used for all groupings so
 #    that the global figure is identical everywhere.
 #
@@ -73,10 +77,11 @@ wb <- wb %>% mutate(income_group = factor(ifelse(is.na(wb_income_fy27), "Unclass
 # ══════════════════════════════════════════════════════════════════════════════
 
 # ── Tier 1: survey-design prevalence and SE (Taylor linearisation) ──
-tier1_ci <- observed_country_prevalence(df) %>%     # same function as the B4 outcome
-  mutate(ci_lower = pmax(prevalence - 1.96 * se, 0),
-            ci_upper = pmin(prevalence + 1.96 * se, 1),
-            tier = "Observed", method = "Survey design")
+tier1_ci <- observed_country_prevalence(df)          # same function as the B4 outcome
+tier1_ci <- tier1_ci %>%
+  bind_cols(prop_ci_logit(tier1_ci$prevalence, tier1_ci$se, tier1_ci$df_design)) %>%
+  select(-df_design) %>%
+  mutate(tier = "Observed", method = "Survey design (logit CI)")
 
 # ── Tier 2: point estimate and sampling uncertainty (cluster bootstrap of PSUs) ──
 set.seed(seed)
@@ -112,11 +117,11 @@ resid_individual <- bind_rows(
   holdout_country_pred %>% select(country_code, predicted = prev_enet_individual)
 ) %>%
   left_join(obs_prev, by = "country_code") %>%
-  mutate(residual = observed - predicted)
+  mutate(residual = observed - predicted, residual_logit = logit_c(observed) - logit_c(predicted))
 
 resid_country <- load_data("country_df_oos") %>%
   transmute(country_code = Country_Code, observed = Mod_high_WI, predicted = oos_enet,
-            residual = observed - predicted)
+            residual = observed - predicted, residual_logit = logit_c(observed) - logit_c(predicted))
 
 # CHECK: 76 residuals each. Mean near 0 = little systematic bias; SD = typical
 # size of the error (expect the country-level SD to be larger)
@@ -127,41 +132,50 @@ for (r in list(list("Individual", resid_individual), list("Country", resid_count
           round(mean(r[[2]]$residual), 4), ", SD = ", round(sd(r[[2]]$residual), 4))
 }
 
-residual_bootstrap <- function(point_df, residuals) {
+# Residuals added on the logit scale (residuals_logit), then transformed back
+residual_bootstrap <- function(point_df, residuals_logit) {
   point_df %>%
     crossing(boot_id = 1:n_boot) %>%
-    mutate(boot_prev = pmin(pmax(prev + sample(residuals, n(), replace = TRUE), 0), 1)) %>%
+    mutate(boot_logit = logit_c(prev) + sample(residuals_logit, n(), replace = TRUE),
+           boot_prev  = plogis(boot_logit)) %>%
     group_by(country_code) %>%
-    summarise(prevalence = first(prev),
-              ci_lower   = pmax(quantile(boot_prev, 0.025), 0),
-              ci_upper   = pmin(quantile(boot_prev, 0.975), 1),
-              se_model   = sd(boot_prev), .groups = "drop")
+    summarise(prevalence     = first(prev),
+              ci_lower       = quantile(boot_prev, 0.025),
+              ci_upper       = quantile(boot_prev, 0.975),
+              se_model       = sd(boot_prev),        # prevalence scale (reported)
+              se_model_logit = sd(boot_logit),       # logit scale (used for combining / group draws)
+              .groups = "drop")
 }
 
 tier3_codes <- country_preds_enet$iso3[country_preds_enet$tier == "Predicted (country-level)"]
 
 # (random-number stream continues from the cluster bootstrap)
 tier2_resid <- residual_bootstrap(tier2_boot %>% select(country_code, prev = prevalence),
-                                  resid_individual$residual)
+                                  resid_individual$residual_logit)
 tier3_resid <- residual_bootstrap(country_preds_enet %>% filter(iso3 %in% tier3_codes) %>%
                                     select(country_code = iso3, prev = prev_enet_country),
-                                  resid_country$residual)
+                                  resid_country$residual_logit)
 
-# ── Tier 2 final: sampling + model SE in quadrature ──
+# ── Tier 2 final: sampling + model SE in quadrature, on the logit scale ──
 tier2_ci <- tier2_boot %>%
   select(country_code, prevalence, se_sampling) %>%
-  left_join(tier2_resid %>% select(country_code, se_model), by = "country_code") %>%
-  mutate(se       = sqrt(se_sampling^2 + se_model^2),
-         ci_lower = pmax(prevalence - 1.96 * se, 0),
-         ci_upper = pmin(prevalence + 1.96 * se, 1),
-         tier = "Predicted (individual)", method = "Combined (sampling + model)")
+  left_join(tier2_resid %>% select(country_code, se_model, se_model_logit), by = "country_code") %>%
+  mutate(se       = sqrt(se_sampling^2 + se_model^2),                              # prevalence scale (reported)
+         se_logit = sqrt(logit_se(prevalence, se_sampling)^2 + se_model_logit^2),
+         ci_lower = plogis(logit_c(prevalence) - 1.96 * se_logit),
+         ci_upper = plogis(logit_c(prevalence) + 1.96 * se_logit),
+         tier = "Predicted (individual)", method = "Combined (sampling + model), logit scale")
 
 tier3_ci <- tier3_resid %>%
-  rename(se = se_model) %>%
-  mutate(tier = "Predicted (country-level)", method = "Residual bootstrap")
+  rename(se = se_model, se_logit = se_model_logit) %>%
+  mutate(tier = "Predicted (country-level)", method = "Residual bootstrap, logit scale")
+
+# Tier 1: delta-method SE on the logit scale (for the group draws)
+tier1_ci <- tier1_ci %>% mutate(se_logit = logit_se(prevalence, se))
 
 country_ci <- bind_rows(tier1_ci, tier2_ci, tier3_ci) %>%
-  select(country_code, prevalence, se, ci_lower, ci_upper, tier, method, any_of(c("se_sampling", "se_model")))
+  select(country_code, prevalence, se, se_logit, ci_lower, ci_upper, tier, method,
+         any_of(c("se_sampling", "se_model")))
 save_table(country_ci, "B8_country_CIs_final")
 
 # CI widths by tier (expected: observed < individual < country-level)
@@ -217,7 +231,7 @@ all_tiers <- wb %>%
   left_join(tier1_ci %>% select(country_code, prev_observed = prevalence), by = "country_code") %>%
   left_join(ind_preds %>% select(country_code, prev_enet_individual, prev_xgb_individual,
                                  individual_pred_source = source), by = "country_code") %>%
-  left_join(country_ci %>% select(country_code, prevalence, se, ci_lower, ci_upper, ci_method = method),
+  left_join(country_ci %>% select(country_code, prevalence, se, se_logit, ci_lower, ci_upper, ci_method = method),
             by = "country_code") %>%
   mutate(prev_best = case_when(tier == "Observed"                  ~ prev_observed,
                                tier == "Predicted (individual)"    ~ prev_enet_individual,
@@ -262,7 +276,7 @@ boot_group_ci <- function(data, group_var, drop_missing_first = FALSE) {
       group_by(across(all_of(group_var))) %>%
       group_modify(~ slice_sample(.x, n = nrow(.x), replace = TRUE)) %>%
       ungroup() %>%
-      mutate(boot_prev = pmin(pmax(rnorm(n(), mean = prevalence, sd = se), 0), 1)) %>%
+      mutate(boot_prev = plogis(rnorm(n(), mean = logit_c(prevalence), sd = se_logit))) %>%   # logit scale
       filter(!is.na(pop_15plus))
     bind_rows(
       bd %>% group_by(group = as.character(.data[[group_var]])) %>%
@@ -290,7 +304,7 @@ boot_group_ci <- function(data, group_var, drop_missing_first = FALSE) {
 
 # Row order (by tier, then country) matches the original, so the bootstrap
 # draws are reproduced
-ci_input <- all_tiers %>% select(country_code, prevalence, se, tier, pop_15plus,
+ci_input <- all_tiers %>% select(country_code, prevalence, se, se_logit, tier, pop_15plus,
                                  m49_region, m49_sub_region, income_group) %>%
   arrange(tier, country_code)
 
@@ -410,7 +424,9 @@ save_table(uncertainty, "B8_uncertainty_flag_inputs")
 # (3) predictors filled with the model-region median; (4) the n_top countries
 # with the largest model disagreement (as above), grouped by model. Values are
 # those the models used (MICE-imputed, A4).
-min_pct_outside <- 0    # 0 = report all; e.g. 10 = only values >= 10% of the training range outside it
+min_pct_outside <- 10   # a value is flagged when it lies outside the training range by at least
+                        # 10% of that range (0 = report every out-of-range value; all are
+                        # in B8_outside_training_range_all.csv with pct_outside)
 n_top           <- 15
 
 var_labels <- c(log_gni_pc_ppp = "GNI per capita (log)", log_water_stress = "Water stress (log)",
@@ -509,7 +525,44 @@ rows_median <- if (nrow(regional_median) > 0) tibble(
   Country = paste0(regional_median$country_name, " (", regional_median$country_code, ")", collapse = "; "),
   Values  = paste0(regional_median$country_code, ": ", regional_median$vars, collapse = "; ")) else NULL
 
-tableS9_flags <- bind_rows(rows_pre, rows_extrap, rows_median, rows_div)
+# (5) Individual-level predictors with NO observed values in a Tier 2 country
+#     (A4_vars_fully_missing_by_country.csv): MICE fills the whole variable from
+#     respondents in other countries, and the models use one imputation, so
+#     these estimates depend more on the imputation (see B2b for the spread
+#     across the 5 imputations).
+ind_var_labels <- c(age = "age", INCOME_5 = "income quintile", inadincome = "income adequacy",
+                    education = "education", waterdissatisfied = "water dissatisfaction",
+                    maritalstatus = "marital status", urban_final = "urbanicity",
+                    employment = "employment", hhsize = "household size")
+f_fully_missing <- file.path(dir_tables, "A4_vars_fully_missing_by_country.csv")
+fully_imputed <- if (file.exists(f_fully_missing)) {
+  read_csv(f_fully_missing, show_col_types = FALSE) %>%
+    mutate(country_code = as.character(country_code)) %>%
+    filter(country_code %in% uncertainty$country_code[uncertainty$tier == "Predicted (individual)"]) %>%
+    left_join(uncertainty %>% distinct(country_code, country_name), by = "country_code") %>%
+    group_by(country_code, country_name) %>%
+    summarise(vars = paste(coalesce(ind_var_labels[variable], variable), collapse = ", "), .groups = "drop") %>%
+    arrange(country_code)
+} else {
+  message("A4_vars_fully_missing_by_country.csv not found (run A4): Table S9 row on fully imputed variables skipped")
+  tibble(country_code = character(), country_name = character(), vars = character())
+}
+save_table(fully_imputed, "B8_individual_vars_fully_imputed_by_country")
+rows_imputed <- if (nrow(fully_imputed) > 0) tibble(
+  Reason  = "Individual-level predictors with no observed values in the country (entirely imputed)",
+  Country = paste0(fully_imputed$country_name, " (", fully_imputed$country_code, ")", collapse = "; "),
+  Values  = paste0(fully_imputed$country_code, ": ", fully_imputed$vars, collapse = "; ")) else NULL
+
+# Table note (last row), so the table carries its own definition of the flag
+rows_note <- tibble(
+  Reason  = "Note",
+  Country = paste0("A national predictor is flagged as outside the training range when its value lies ",
+                   "beyond the minimum or maximum of the training data by at least ", min_pct_outside,
+                   "% of the training range (training data: 70 countries for the individual-level model, ",
+                   "76 observed countries for the country-level model)."),
+  Values  = "")
+
+tableS9_flags <- bind_rows(rows_pre, rows_extrap, rows_median, rows_imputed, rows_div, rows_note)
 print(tableS9_flags, n = Inf, width = Inf)
 readr::write_excel_csv(tableS9_flags, file.path(dir_tables, "B8_tableS09_flagged_countries.csv"))   # Excel-safe (dashes)
 
@@ -521,6 +574,7 @@ country_flags <- bind_rows(
     group_by(country_code) %>%
     summarise(reason = paste0("Outside training range: ", paste(var_labels[wb_var], collapse = ", ")), .groups = "drop"),
   regional_median %>% transmute(country_code, reason = paste0("Regional-median predictors: ", vars)),
+  fully_imputed %>% transmute(country_code, reason = paste0("Entirely imputed individual predictors: ", vars)),
   top_div %>% transmute(country_code, reason = paste0("Top ", n_top, " model disagreement (",
                                                       round(100 * max_abs_disagreement, 1), " pp)"))
 ) %>%
