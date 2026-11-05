@@ -33,8 +33,9 @@
 #
 #  How to read the calibration statistics (printed on panel a and saved):
 #    slope and intercept from regressing OBSERVED on PREDICTED prevalence.
-#    Ideal: slope = 1, intercept = 0. Slope < 1: predictions too extreme
-#    (high ones too high, low ones too low); slope > 1: too compressed.
+#    Ideal: slope = 1, intercept = 0. Slope < 1: high predictions tend to be
+#    above, and low predictions below, the observed values; slope > 1: the
+#    reverse (high predictions below, low predictions above).
 #    R² (squared correlation) and MAE/RMSE as in B1. In panel b, deciles close
 #    to the dashed 1:1 line indicate good calibration across the range.
 ################################################################################

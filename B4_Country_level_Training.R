@@ -47,7 +47,8 @@
 #    RMSE       like MAE but penalises large errors more
 #    mean_bias  mean(predicted - observed): > 0 over-predicts on average
 #    slope/intercept  from regressing observed on predicted; ideal = 1 and 0.
-#               slope < 1: predictions too spread out; slope > 1: too compressed.
+#               slope < 1: high predictions tend to be above, and low ones below, the observed values;
+#               slope > 1: the reverse.
 #    Best model = highest R², lowest MAE/RMSE, slope closest to 1.
 #    The individual-level rows use the same 70 LCO CV / 6 hold-out countries.
 ################################################################################
