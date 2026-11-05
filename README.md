@@ -73,7 +73,7 @@ The scripts themselves (this folder) can live anywhere. Set `scripts_dir` in `00
    renv::restore()   # installs the versions recorded in renv.lock (R 4.5.1)
    ```
    Otherwise install the packages yourself; `load_pkgs()` stops and lists any that are missing.
-3. **World Bank snapshot.** Run this only once, or when you deliberately want new data.
+3. **World Bank snapshot.** **To reproduce the paper, do not run A0.** Copy the three files in `data/wb_snapshots/` (the 14 October 2026 snapshot used for the paper) into `INPUT/wb_snapshots/`; `00_setup.R` already points to them (`wb_snapshot_stamp <- "20261014"`). Only run A0 when you deliberately want new data:
    - Run `A0_External_data_merge.R`. It prints the date stamp of the files it writes.
    - Set `wb_snapshot_stamp <- "YYYYMMDD"` in `00_setup.R` to that stamp.
    - A0 never overwrites an existing snapshot. The paper uses the **October 2026** snapshot, so leave the stamp alone to replicate it.
@@ -258,6 +258,8 @@ Hold-out results rest on only 6 countries, so read them alongside the LCO CV res
 
 **The survey data are not included in this repository.** Gallup World Poll (GWP) data, including the Individual Water Insecurity Experiences (IWISE) module, can be made available on reasonable request from the author, Indira Bose (indira.bose@lshtm.ac.uk), or from wise_scales@northwestern.edu.
 
+**The national-level data used for the paper are included** in `data/wb_snapshots/` (World Bank indicators and population, CPI, ND-GAIN, JMP water indicators, M49 regions and income groups, as merged by A0 on 14 October 2026). Use these to reproduce the results; see `data/wb_snapshots/README.md` for the sources to cite.
+
 All other data are publicly available and can be downloaded directly:
 
 - **World Bank World Development Indicators** (including population): downloaded automatically by `A0_External_data_merge.R` through the World Bank API.
@@ -267,7 +269,7 @@ All other data are publicly available and can be downloaded directly:
 - **UN boundaries for the maps** (UN Geospatial, BNDA simplified): downloaded automatically on first use.
 - **Natural Earth** 1:10m disputed areas and 1:50m lakes (public domain; <https://www.naturalearthdata.com>): downloaded automatically by `C5_WHO_style_maps.R`.
 
-To run the code, place the data files in `INPUT/` as shown in Section 2 and set `root_dir` and `scripts_dir` in `00_setup.R`. The `.gitignore` prevents data and outputs from being committed.
+To run the code, place the data files in `INPUT/` as shown in Section 2 (including the three files from `data/wb_snapshots/` in `INPUT/wb_snapshots/`) and set `root_dir` and `scripts_dir` in `00_setup.R`. The `.gitignore` prevents data and outputs from being committed (apart from the public snapshot in `data/wb_snapshots/`).
 
 ---
 
