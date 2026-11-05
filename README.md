@@ -90,7 +90,7 @@ Run times are appended to `OUTPUT/logs/run_times.csv`. Package versions are writ
 
 Approximate run times are for a standard Windows laptop. **Main pipeline total, excluding A0: about 2 hours** (November 2026 run on the full data: A4 ≈ 1 h, B1 ≈ 30 min, B11 ≈ 20 min; everything else a few minutes). Times are wall-clock and can be much longer if the computer is busy or goes to sleep. A2 (≈ 40 min) and A3 (≈ 35 min) are optional and not counted in the total.
 
-### A — Data preparation
+### A - Data preparation
 
 | Script | Purpose | Depends on | Run time | Notes |
 |---|---|---|---|---|
@@ -103,7 +103,7 @@ Approximate run times are for a standard Windows laptop. **Main pipeline total, 
 | `A4_MICE_Imputation.R` | MICE for country-level variables (194 countries; mean of 5 imputations) and individual-level variables (df + new_data; imputation 1) | A1 | ~1 h | Needs only A1. Also writes the spread across imputations (`A4_country_imputation_spread.csv`). National predictors not imputed by MICE (water stress, precipitation, basic water, under-5 mortality) and countries MICE cannot impute get the model-region median (see A4b) |
 | `A5_Descriptive_statistics.R` | Descriptive statistics for the 76 observed countries: survey-weighted individual predictors (as Stata `svy: mean x`; overall, optionally by M49 region) and national predictors, each **before and after MICE**; number of countries per M49 region / sub-region and by tier; % missing per individual variable (Table S3) | A1, A4 | 2–5 min (mostly a one-off check against the survey package) | Tables S1A, S1B, S3. Design as in Stata `svyset psu [pweight = projectionwgt_svy_yr], strata(strata) singleunit(certainty)`, with strata/PSUs made unique within country and year |
 
-### B — Analysis
+### B - Analysis
 
 | Script | Purpose | Depends on | Run time | Notes |
 |---|---|---|---|---|
@@ -120,7 +120,7 @@ Approximate run times are for a standard Windows laptop. **Main pipeline total, 
 | `B10_Sensitivity_CI_without_replacement.R` | **Sensitivity:** group intervals with countries sampled *without* replacement (every country in every repetition; only the logit-scale draws of each country's prevalence vary), compared with B8 | B8 | <1 min | Lower bound (assumes independent country errors). Run before B11 so it appears in B11's comparison |
 | `B11_Bootstrap_model_CIs.R` | **Main group 95% UIs.** Individual and country ENET refitted in every repetition (country bootstrap stratified by model region, with PSU resampling), plus survey sampling (Tier 1), PSU resampling (Tier 2) and a resampled out-of-sample country residual on the logit scale (Tiers 2–3); groups aggregated with countries fixed. Residual bootstrap run alongside as a check. Compares all methods (B8, B10, both B11) | A4, B1, B2, B4, B5, B8, B10 | ~20 min (n_boot = 1000) | Writes `group_UIs_B11.rds` (used by C1), Table S10 (all countries with UIs) and Fig S20. Set `n_boot <- 50` to time it first |
 
-### C — Visualisation
+### C - Visualisation
 
 | Script | Purpose | Depends on | Run time | Notes |
 |---|---|---|---|---|
