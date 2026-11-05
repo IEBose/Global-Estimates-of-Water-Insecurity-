@@ -27,7 +27,7 @@ XGBoost, random forest and a mixed-effects logistic model are fitted for compari
 There are two separate region variables. Keep them apart.
 
 - **`region_final`** is a 9-category **model predictor**. For all data (observed, prediction and national), it is built from UN M49 by `assign_region_final_m49()` in `00_setup.R`. "MENA" in this variable means Northern Africa, Western Asia and Central Asia. Pacific islands other than Australia and New Zealand go to East & SE Asia.
-- **M49 region / sub-region** is used for **all reporting** (tables, figures, uncertainty intervals). The old `regional_report` / `region_report` variables have been removed.
+- **M49 region / sub-region** is used for **all reporting** (tables, figures, uncertainty intervals). 
 
 B9 tests how sensitive the estimates are to the model-region assignment: JPN, KOR and SGP are moved to N. America/Europe/Australia, and SDN and YEM to Eastern Africa.
 
