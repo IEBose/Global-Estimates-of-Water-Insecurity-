@@ -154,7 +154,7 @@ Numbering follows the manuscript. Figures are written to `OUTPUT/figures/` and t
 
 | Output | Content | Script | File |
 |---|---|---|---|
-| Table S1A | Individual-level descriptive statistics, observed countries (survey-weighted; before/after MICE) | A5 | `A5_tableS01A_individual_descriptives.csv` |
+| Table S1A | Individual-level descriptive statistics, observed countries (survey-weighted; before/after MICE) | A5 | `A5_tableS01A_individual_descriptives.csv`, `A5_individual_descriptives_long.csv` |
 | Table S1B | National-level descriptive statistics, observed countries (before/after MICE) | A5 | `A5_tableS01B_national_descriptives.csv` |
 | Figure S1 | Forest plot of prevalence by M49 region and globally (95% UIs) | C1 (UIs B11) | `C1_figS01_forest_m49_region.png` |
 | Figure S2 | Prevalence by M49 sub-region (95% UIs) | C1 (UIs B11) | `C1_figS02_prev_subregion_CIs.png` |
