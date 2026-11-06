@@ -167,7 +167,7 @@ Numbering follows the manuscript. Figures are written to `OUTPUT/figures/` and t
 | Table S3 | Individual-level indicators: variable type and % missing (observed 76, predicted 85, all 161 countries) | A5 | `A5_tableS03_individual_missingness.csv` |
 | Table S4 | Model predictors | 00_setup | predictor lists (no file) |
 | Figure S8 | ROC curves, hold-out countries | B1 | `B1_figS08_roc_holdouts.png` |
-| Figure S9 | Pred vs obs (76: LCO CV + hold-outs), individual ENET and XGBoost, by model region | B1 | `B1_figS09_pred_vs_obs_enet_xgb.png` |
+| Figure S9 | Pred vs obs (76: LCO CV + hold-outs), individual ENET and XGBoost (M49 region colours) | B1 | `B1_figS09_pred_vs_obs_enet_xgb.png` |
 | Figure S10 | Pred vs obs (76), all individual-level models | B1 | `B1_figS10_pred_vs_obs_all_models.png` |
 | Figure S11 | LCO CV residuals by model region (individual and country-level ENET; regions in geographic order) | B7 | `B7_figS11_residuals_by_model_region.png` (table: `B7_residuals_by_model_region_lco.csv`) |
 | Figure S12 | LCO CV residuals by income group (individual and country-level ENET) | B7 | `B7_figS12_residuals_by_income_group.png` |
