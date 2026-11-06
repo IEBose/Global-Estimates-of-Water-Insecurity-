@@ -26,7 +26,10 @@
 #    * Disputed lines have the same colour and width as international
 #      boundaries and are drawn on top of every other layer
 #    * Large lakes (> ~5,000 km2) in the background colour
-#    * Legend ends with "Data not available"; WHO-style disclaimer below each map
+#    * Figure 1 legends end with "Data not available"; on the bivariate maps
+#      grey ("data not available") is explained in the caption, to keep the
+#      small 3x3 key readable. WHO-style disclaimer and projection (Equal
+#      Earth) below each map
 #  "Data not available" is used for the disputed areas too (rather than the
 #  SOP's "Not applicable"), as agreed with co-authors; this is not a WHO
 #  publication, so the WHO logo / copyright elements are not used.
@@ -292,7 +295,7 @@ map_caption <- paste0(
   "on the part of the authors concerning the legal status of any country, territory, city or area or of its authorities, or concerning\n",
   "the delimitation of its frontiers or boundaries. Dotted and dashed lines on maps represent approximate border lines for which\n",
   "there may not yet be full agreement.\n",
-  "Map boundaries: UN Geospatial; Abyei, Kosovo and lakes: Natural Earth."
+  "Map boundaries: UN Geospatial; Abyei, Kosovo and lakes: Natural Earth. Projection: Equal Earth."
 )
 
 map_theme <- theme_void(base_size = 11) +
@@ -476,11 +479,13 @@ bivar_map <- function(class_col, title, legend_label) {
     top_layers(col_no_data_bivar) +
     scale_fill_manual(values = bivar_colours, guide = "none") +
     scale_bar +
-    map_coord + labs(title = title, caption = paste0(bivar_note, if (hatch_bivariate) "\n", map_caption)) +
+    map_coord + labs(title = title,
+                     caption = paste0("Grey: ", tolower(lab_no_data), ". ", bivar_note, "\n", map_caption)) +
     map_theme + theme(plot.title = element_text(face = "bold", size = 12))
 
-  # 3x3 key. `legend` has "Data not available" below it (WHO: always in the
-  # legend); `legend_plain` has not (Figure 3, where it is in the caption)
+  # 3x3 key. All bivariate maps use `legend_plain` (no "Data not available"
+  # tile, which made the small key hard to read); grey is explained in the
+  # caption instead. `legend` (with the tile) is kept in case it is needed.
   key <- expand.grid(x = 1:3, y = 1:3) %>% mutate(fill = paste0(x, "-", y))
   p_legend_plain <- ggplot(key, aes(x = x, y = y, fill = fill)) +
     geom_tile(colour = "white", linewidth = 0.5) +
@@ -498,7 +503,7 @@ bivar_map <- function(class_col, title, legend_label) {
     annotate("text", x = 1.65, y = -0.4, label = lab_no_data, hjust = 0, size = 2.1) +
     coord_equal(xlim = c(0.5, 3.5), ylim = c(-1, 3.5), clip = "off")
 
-  list(combined = p_map + inset_element(p_legend, left = 0.02, bottom = 0.10, right = 0.18, top = 0.36),
+  list(combined = p_map + inset_element(p_legend_plain, left = 0.02, bottom = 0.12, right = 0.18, top = 0.36),
        map = p_map, legend = p_legend, legend_plain = p_legend_plain)
 }
 
@@ -510,12 +515,10 @@ p_managed <- bivar_map("bivar_managed_class", "C) Water insecurity prevalence ×
 p_avail   <- bivar_map("bivar_avail_class",   "Water insecurity prevalence × Water not available when needed",
                        "Water Not Available")
 
-# Figure 3: maps A-C stacked, each with its 3x3 key (no "Data not available"
-# tile, which made the small keys hard to read); grey is explained once in the
-# caption under map C, above the disclaimer
+# Figure 3: maps A-C stacked, each with its 3x3 key; the caption (grey = data
+# not available, hatching, disclaimer, projection) once, under map C
 with_key <- function(m, caption = FALSE) {
-  mm <- if (caption) m$map + labs(caption = paste0("Grey: ", tolower(lab_no_data), ". ", bivar_note, "\n", map_caption))
-        else m$map + labs(caption = NULL)
+  mm <- if (caption) m$map else m$map + labs(caption = NULL)
   mm + inset_element(m$legend_plain, left = 0.02, bottom = if (caption) 0.12 else 0.04,
                      right = 0.18, top = if (caption) 0.36 else 0.30)
 }
@@ -528,7 +531,7 @@ maps <- list(stress = p_stress, basic = p_basic, smdws = p_managed, availability
 for (nm in names(maps)) {
   save_map(maps[[nm]]$combined, file.path("C5_panels", paste0("C5_bivariate_", nm, ".png")),
            width = 12, height = 7.5, dpi = 600)
-  save_map(maps[[nm]]$legend,   file.path("C5_panels", paste0("C5_key_", nm, ".png")),
+  save_map(maps[[nm]]$legend_plain, file.path("C5_panels", paste0("C5_key_", nm, ".png")),
            width = 2.2, height = 2.8, dpi = 600)
 }
 save_data(list(map_prevalence = p_map_prev, map_source = p_map_source, bivariate = maps), "C5_map_plots")
