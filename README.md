@@ -16,7 +16,7 @@ Each country's estimate comes from one of three tiers. A country gets the highes
 | 2 | Individual-level model | 85 | Elastic net (ENET) fitted on individual Gallup responses + national predictors, then predictions averaged to country level | PSU bootstrap (sampling) combined with a residual bootstrap of the individual ENET's out-of-sample errors (logit scale) |
 | 3 | Country-level model | 33 | ENET on national predictors only | Residual bootstrap of the country ENET's out-of-sample errors (logit scale) |
 
-For each tier, the 118 countries without observed data split as **85 + 33 = 118**.
+For each tier, the 118 countries without observed data split as **85 + 33 = 118** (Tiers 2 and 3).
 
 The country estimates are then aggregated to **UN M49 regions and sub-regions**, **World Bank income groups** and the **world**. Aggregation uses 2025 population aged 15+ as weights. Uncertainty is reported as **95% uncertainty intervals (UIs)** from a bootstrap in which the models are refitted in every repetition (B11, 1,000 reps); B8 and B10 intervals are sensitivity analyses.
 
@@ -187,12 +187,12 @@ Numbering follows the manuscript. Figures are written to `OUTPUT/figures/` and t
 | Figure S20 | Uncertainty-interval sensitivity: main UIs vs residual bootstrap, countries fixed (B10) and countries resampled (B8), by region and income group | B11 (B8, B10) | `B11_figS20_uncertainty_sensitivity.png` (sub-regions: `B11_group_CI_comparison_sub_region.png`) |
 | Table S11 | Region reclassification sensitivity | B9 | `B9_tableS11_region_reclassification.csv` |
 | Table S12 | Imputation sensitivity: hold-out AUC by imputation approach | A3 (optional; needs A2) | `A3_tableS12_imputation_sensitivity.csv` |
-| Text S1 | Sensitivity analysis of estimates based on national-level predictor imputation | — | see below
+   | Text S1 | Sensitivity analysis of estimates based on national-level predictor imputation | A4b, A4c (optional) | Tables S13 and S14 (below) |
 | Table S13 | A4b sensitivity (MICE for all national variables): global, M49 region and income-group prevalence, main vs sensitivity | A4c (optional; needs A4b, B11) | `OUTPUT_sensitivity_MICE_all_national/tables/A4b_table_group_comparison.csv` |
 | Table S14 | A4b sensitivity: countries whose estimate changed by > 1 percentage point, with main 95% UI and whether the sensitivity estimate falls within it | A4c (optional; needs A4b, B11) | `OUTPUT_sensitivity_MICE_all_national/tables/A4b_table_countries_changed.csv` |
 | Text S2 | Comparison with collected national data | — | not produced by the pipeline |
 
-**Not numbered (kept for reference):** Figure 5 and S13 with the 6 hold-outs (`B7_*_all76.png`); prediction-interval coverage (`B4_prediction_interval_coverage.csv`); baselines (`B4_baseline_oos_predictions.csv`); B8 and B10 interval tables; alternative maps (`C1_alt_*`, `C2_alt_*`, `C4_alt_*`); single correlation plots (`C3_wi_vs_*.png`, `C3_panels/`); A4b country comparison figure (`A4b_fig_country_comparison.png`; other A4b outputs in its separate output folder)
+**Not numbered (kept for reference):** Figure 5 and S13 with the 6 hold-outs (`B7_*_all76.png`); prediction-interval coverage (`B4_prediction_interval_coverage.csv`); baselines (`B4_baseline_oos_predictions.csv`); B8 and B10 interval tables; alternative maps (`C1_alt_*`, `C2_alt_*`, `C4_alt_*`); single correlation plots (`C3_wi_vs_*.png`, `C3_panels/`); A4b country comparison figure (`A4b_fig_country_comparison.png`; other A4b outputs in its separate output folder).
 
 Panels are also saved on their own so they can be combined differently: `figures/C1_panels/` (Figure 1 a and b), `figures/C2_panels/` (alternative bivariate maps without their keys, and each key), `figures/C3_panels/` (every correlation panel, raw and GNI-adjusted), `figures/C4_panels/` (alternative UN-boundary maps and keys), `figures/C5_panels/` (paper maps and keys). The ggplot objects are saved in `data/C1_map_plots.rds`, `C2_plots.rds`, `C3_plots.rds`, `C4_map_plots.rds` and `C5_map_plots.rds` for recombining with patchwork.
 
