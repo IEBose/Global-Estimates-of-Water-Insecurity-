@@ -40,7 +40,8 @@
 #    Figure S17 SHAP without WD                     B1_figS17_shap_noWD.png
 #    Table S5   Test (hold-out) metrics             B1_tableS05_holdout_metrics.csv
 #    Table S6   LCO CV metrics (individual level),  B1_tableS06_lco_cv_metrics.csv
-#               mean (SD) across folds + pooled     (footnote: ICC, B1_mixed_effects_ICC.csv)
+#               mean and SD across the 5 folds      (footnote: ICC, B1_mixed_effects_ICC.csv);
+#               with pooled rows and all metrics:   B1_lco_cv_metrics_fold_and_pooled.csv
 #    Check tables (unformatted / extra detail):
 #               B1_holdout_metrics.csv, B1_holdout_metrics_extended.csv,
 #               B1_lco_cv_by_fold.csv, B1_lco_cv_by_fold_extended.csv,
@@ -370,14 +371,15 @@ tableS3_ext <- holdout_results %>%
          AUC_ROC, AUC_ROC_lower, AUC_ROC_upper, AUC_PR, Brier, Brier_scaled,
          Threshold, Accuracy, Sensitivity, Specificity, F1)
 save_table(tableS3_ext, "B1_holdout_metrics_extended")
+# Table S5: the columns in the supplement. N respondents / countries, observed
+# and mean predicted prevalence, scaled Brier and the 95% CI of AUC-ROC are in
+# B1_holdout_metrics_extended.csv
 save_table(tableS3_ext %>%
-             transmute(Model = model, `Test set` = test_set, `N respondents` = n_respondents,
-                       `N countries` = n_countries, `Observed prevalence` = fmt3(observed_prev),
-                       `Mean predicted` = fmt3(mean_predicted),
-                       `AUC-ROC (95% CI)` = sprintf("%.3f (%.3f-%.3f)", AUC_ROC, AUC_ROC_lower, AUC_ROC_upper),
-                       `AUC-PR` = fmt3(AUC_PR), Brier = fmt3(Brier), `Scaled Brier` = fmt3(Brier_scaled),
-                       Threshold = fmt3(Threshold), Accuracy = fmt3(Accuracy), Sensitivity = fmt3(Sensitivity),
-                       Specificity = fmt3(Specificity), F1 = fmt3(F1)),
+             transmute(Model = model, `Test set` = test_set,
+                       `AUC ROC` = fmt3(AUC_ROC), `AUC PR` = fmt3(AUC_PR),
+                       Accuracy = fmt3(Accuracy), Sensitivity = fmt3(Sensitivity),
+                       Specificity = fmt3(Specificity), F1 = fmt3(F1),
+                       Brier = fmt3(Brier), Threshold = fmt3(Threshold)),
            "B1_tableS05_holdout_metrics")
 
 # Country prevalence predicted for the 6 hold-out countries (used in Tables S7/S8,
@@ -539,13 +541,28 @@ lco_pooled_fmt <- lco_pooled %>%
   transmute(model, summary = "Pooled (all out-of-fold predictions)",
             across(all_of(metric_cols), fmt3))
 
+# Both summaries (mean (SD) across folds and pooled) with all metrics, for reference
 tableS4_fmt <- bind_rows(lco_fold_fmt, lco_pooled_fmt) %>%
   mutate(model = factor(model, levels = names(oof_cols))) %>%
   arrange(model, summary != "Mean (SD) across folds") %>%
   rename(Model = model, Summary = summary, `Observed prevalence` = observed_prev,
          `Mean predicted` = mean_predicted, `AUC-ROC` = AUC_ROC, `AUC-PR` = AUC_PR,
          `Scaled Brier` = Brier_scaled)
-save_table(tableS4_fmt, "B1_tableS06_lco_cv_metrics")
+save_table(tableS4_fmt, "B1_lco_cv_metrics_fold_and_pooled")
+
+# Table S6: the columns in the supplement — mean and SD across the 5 folds
+fmt_sd <- function(x) sprintf("%.3f", x)
+tableS6 <- lco_by_fold_ext %>%
+  mutate(model = factor(model, levels = names(oof_cols))) %>%
+  group_by(Model = model) %>%
+  summarise(`AUC ROC mean` = fmt_sd(mean(AUC_ROC, na.rm = TRUE)), `AUC ROC sd` = fmt_sd(sd(AUC_ROC, na.rm = TRUE)),
+            `AUC PR mean` = fmt_sd(mean(AUC_PR, na.rm = TRUE)), `AUC PR sd` = fmt_sd(sd(AUC_PR, na.rm = TRUE)),
+            `Accuracy mean` = fmt_sd(mean(Accuracy, na.rm = TRUE)), `Accuracy sd` = fmt_sd(sd(Accuracy, na.rm = TRUE)),
+            `Sensitivity mean` = fmt_sd(mean(Sensitivity, na.rm = TRUE)), `Sensitivity sd` = fmt_sd(sd(Sensitivity, na.rm = TRUE)),
+            `Specificity mean` = fmt_sd(mean(Specificity, na.rm = TRUE)), `Specificity sd` = fmt_sd(sd(Specificity, na.rm = TRUE)),
+            `F1 mean` = fmt_sd(mean(F1, na.rm = TRUE)), `F1 sd` = fmt_sd(sd(F1, na.rm = TRUE)),
+            `Brier mean` = fmt_sd(mean(Brier, na.rm = TRUE)), `Brier sd` = fmt_sd(sd(Brier, na.rm = TRUE)), .groups = "drop")
+save_table(tableS6, "B1_tableS06_lco_cv_metrics")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
