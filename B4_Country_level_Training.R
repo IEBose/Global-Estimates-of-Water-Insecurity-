@@ -325,15 +325,18 @@ oos_long <- country_df_oos %>%
          m49_region = factor(m49_region, levels = m49_region_levels))
 
 ax_max <- max(country_df_oos$Mod_high_WI) * 1.1
-p_oos <- ggplot(oos_long, aes(x = Mod_high_WI, y = predicted)) +
+# Same layout as Figure 5, S9, S10 and S13: predicted on x, observed on y, M49 colours
+p_oos <- ggplot(oos_long, aes(x = predicted, y = Mod_high_WI)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey50") +
   geom_point(aes(colour = m49_region, shape = oos_source), size = 3, alpha = 0.7) +
   geom_text(aes(label = Country_Code), size = 2.2, vjust = -0.8, check_overlap = TRUE) +
   facet_wrap(~ model) +
   scale_colour_manual(values = m49_col) +
+  # same shapes as the individual-level figures (B1): circle = LCO CV, triangle = hold-out
+  scale_shape_manual(values = c("LCO CV (70)" = 16, "Hold-out (6)" = 17)) +
   coord_equal(xlim = c(0, ax_max), ylim = c(0, ax_max)) +
   labs(title = "Country-Level Predicted vs Observed Prevalence (out-of-sample)",
-       x = "Observed Prevalence (weighted)", y = "Out-of-sample Predicted Prevalence",
+       x = "Out-of-sample Predicted Prevalence", y = "Observed Prevalence (weighted)",
        colour = "M49 region", shape = NULL) +
   theme_minimal() + theme(legend.position = "bottom", legend.box = "vertical")
 save_fig(p_oos, "B4_figS14_country_cv_all_models.png", width = 14, height = 7, dpi = 300)
@@ -351,6 +354,7 @@ p_resid <- country_df_oos %>%
   geom_point(aes(colour = m49_region, shape = oos_source), size = 3, alpha = 0.7) +
   geom_text(aes(label = Country_Code), size = 2.5, vjust = -0.8, check_overlap = TRUE) +
   scale_colour_manual(values = m49_col) +
+  scale_shape_manual(values = c("LCO CV (70)" = 16, "Hold-out (6)" = 17)) +
   labs(title = paste("Residuals -", best_model_name, "(country level, out-of-sample)"),
        subtitle = "Positive = overestimates, Negative = underestimates",
        x = "Observed Prevalence", y = "Residual (Predicted - Observed)",

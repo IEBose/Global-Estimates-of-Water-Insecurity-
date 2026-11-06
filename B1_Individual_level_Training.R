@@ -658,20 +658,23 @@ p_all_models <- ggplot(country_pred_long, aes(x = predicted, y = observed)) +
   theme(legend.position = "bottom", legend.box = "vertical")
 save_fig(p_all_models, "B1_figS10_pred_vs_obs_all_models.png", width = 12, height = 10, dpi = 300)
 
-# ── Figure S9: ENET and XGB only, coloured by MODEL region ──
+# ── Figure S9: ENET and XGB only, coloured by M49 region ──
+# Same layout as Figure 5, S10, S13 and S14: predicted on x, observed on y,
+# M49 region colours (residuals by model region: Figure S11)
 p_enet_xgb <- country_pred_long %>%
   filter(model %in% c("Elastic Net", "XGBoost")) %>%
-  ggplot(aes(x = observed, y = predicted)) +
+  ggplot(aes(x = predicted, y = observed)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "grey50") +
-  geom_point(aes(colour = region_final, size = n, shape = oos_source), alpha = 0.7) +
+  geom_point(aes(colour = m49_region, size = n, shape = oos_source), alpha = 0.7) +
   geom_text(aes(label = country_code), size = 2.5, vjust = -0.8, check_overlap = TRUE) +
   facet_wrap(~ model) +
+  scale_colour_manual(values = m49_col) +
   scale_shape_manual(values = c("LCO CV (70)" = 16, "Hold-out (6)" = 17)) +
   coord_equal(xlim = c(0, ax_max), ylim = c(0, ax_max)) +
   labs(title = "Predicted vs Observed Water Insecurity Prevalence",
        subtitle = "Out-of-sample predictions: 70 countries in LCO CV + 6 hold-out countries (weighted)",
-       x = "Observed Prevalence", y = "Predicted Prevalence",
-       colour = "Model region", size = "Sample size", shape = NULL) +
+       x = "Predicted Prevalence", y = "Observed Prevalence",
+       colour = "M49 region", size = "Sample size", shape = NULL) +
   theme_minimal() +
   theme(legend.position = "bottom", legend.box = "vertical")
 save_fig(p_enet_xgb, "B1_figS09_pred_vs_obs_enet_xgb.png", width = 12, height = 7, dpi = 300)
