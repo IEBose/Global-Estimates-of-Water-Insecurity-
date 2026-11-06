@@ -172,7 +172,7 @@ Numbering follows the manuscript. Figures are written to `OUTPUT/figures/` and t
 | Figure S11 | LCO CV residuals by model region (individual and country-level ENET; regions in geographic order) | B7 | `B7_figS11_residuals_by_model_region.png` (table: `B7_residuals_by_model_region_lco.csv`) |
 | Figure S12 | LCO CV residuals by income group (individual and country-level ENET) | B7 | `B7_figS12_residuals_by_income_group.png` |
 | Table S5 | Hold-out (test) metrics, individual-level models | B1 | `B1_tableS05_holdout_metrics.csv` |
-| Table S6 | LCO CV metrics, individual-level models: mean (SD) across folds and pooled; footnote ICC | B1 | `B1_tableS06_lco_cv_metrics.csv`; ICC: `B1_mixed_effects_ICC.csv` |
+| Table S6 | LCO CV metrics, individual-level models: mean and SD across the 5 folds; footnote ICC (pooled values: `B1_lco_cv_metrics_fold_and_pooled.csv`) | B1 | `B1_tableS06_lco_cv_metrics.csv`; ICC: `B1_mixed_effects_ICC.csv` |
 | Table S7 | Model comparison, LCO CV (70): individual and country-level models + model-region mean: R², MAE, RMSE, calibration slope/intercept | B4 (individual rows from B1) | `B4_tableS07_model_comparison_LCO_CV.csv` (full: `B4_model_comparison_LCO_CV_full.csv`) |
 | Table S8 | Hold-out (6) metrics: MAE, RMSE, mean bias | B4 | `B4_tableS08_holdout_metrics.csv` (full: `B4_model_comparison_holdout_all76_full.csv`) |
 | Figure S13 | Validation, country-level ENET (LCO CV, 70; as Figure 5) | B7 | `B7_figS13_validation_country_enet.png` |
