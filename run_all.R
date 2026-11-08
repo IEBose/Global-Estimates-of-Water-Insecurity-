@@ -25,6 +25,7 @@
 #    B9  Region sensitivity                <1 min
 #    B10 Intervals, countries fixed        <1 min    (sensitivity)
 #    B11 Model bootstrap UIs               ~20 min (MAIN group UIs; case + residual)
+#    B2c Imputation sensitivity table      seconds (B2b table with main UIs; needs B11)
 #    C1  Figure 2, S1-S3 (+ alternative maps) <1 min  (first run downloads UN boundaries)
 #    C2  Bivariate maps (alternative)      <1 min
 #    C3  Figure 4, S4-S6 (correlations)    <1 min
@@ -62,6 +63,7 @@ pipeline <- c(
   "B9_Sensitivity_region_estimates.R",
   "B10_Sensitivity_CI_without_replacement.R",
   "B11_Bootstrap_model_CIs.R",
+  "B2c_Imputation_sensitivity_table.R",   # after B11: uses its 95% UIs
   "C1_Global_Estimates_Figures_Maps.R",
   "C2_Bivariate_maps.R",
   "C3_Key_Indicator_correlations.R",

@@ -18,7 +18,12 @@
 #                (12 countries, mainly Pacific islands and European microstates);
 #                gaps in the 7 predictors themselves are then also filled with
 #                the model-region median (Section 3).
-#              individual: Cuba, Djibouti, Guyana (no income data).
+#              individual: MICE imputes every missing value, including
+#                variables with no observed values in a country (Cuba,
+#                Djibouti, Guyana income; Qatar water dissatisfaction), from
+#                respondents in other countries. A regional median/mode
+#                fallback remains as a safety net but is not used in the
+#                current data.
 #            Sensitivity analysis with ALL incomplete national variables imputed
 #            by MICE: A4b_Sensitivity_MICE_all_national_vars.R (optional).
 #
@@ -133,8 +138,8 @@ combined <- bind_rows(
     female            = factor(female)
   )
 
-# Variables that are completely missing in at least one country (these rely
-# on the regional fallback in Section 3)
+# Variables that are completely missing in at least one country (imputed
+# entirely from other countries; flagged in Table S9 (B8))
 vars_regional <- combined %>%
   group_by(country_code) %>%
   summarise(across(all_of(ind_vars_both), ~ all(is.na(.)))) %>%
@@ -187,8 +192,8 @@ get_mode <- function(x) {
   names(sort(table(x), decreasing = TRUE))[1]
 }
 
-# Completed individual data for imputation k. Anything MICE could not impute
-# (e.g. Cuba, Djibouti, Guyana — no income data) gets the regional median/mode.
+# Completed individual data for imputation k. Anything MICE left missing gets
+# the regional median/mode (safety net; not used in the current data).
 complete_full <- function(k) {
   out <- complete(imp_ind, k) %>%
     group_by(region_final) %>%

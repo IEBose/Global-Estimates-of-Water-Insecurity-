@@ -30,6 +30,9 @@
 #              A4b_country_comparison.csv          country estimates, main vs this
 #              A4b_group_comparison.csv            region / income / global
 #              A4b_validation_comparison.csv       LCO CV metrics, main vs this
+#            and, from A4c (run automatically at the end), the supplement table
+#            and figure: A4b_table_group_comparison.csv,
+#            A4b_table_countries_changed.csv, figures/A4b_fig_country_comparison.png/.pdf
 #  Run time: ~1-2 h (mostly B1); add ~1-2 h if run_B11 = TRUE
 #
 #  Run from the scripts folder, in a fresh R session.
@@ -216,3 +219,6 @@ message("A4b finished in ", round(as.numeric(difftime(Sys.time(), t_start, units
     rm("output_dir_override", envir = globalenv())
   message("Output folder reset to the main OUTPUT/ for any later scripts in this session.")
 })
+
+# Supplement table and figure (also runs on its own: source("A4c_MICE_sensitivity_table_figure.R"))
+source("A4c_MICE_sensitivity_table_figure.R", local = new.env(parent = globalenv()))

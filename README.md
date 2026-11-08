@@ -78,7 +78,7 @@ The scripts themselves (this folder) can live anywhere. Set `scripts_dir` in `00
    - Set `wb_snapshot_stamp <- "YYYYMMDD"` in `00_setup.R` to that stamp.
    - A0 never overwrites an existing snapshot. The paper uses the **October 2026** snapshot, so leave the stamp alone to replicate it.
 4. **Run the main pipeline:** `source("run_all.R")` with the working directory set to the scripts folder.
-   - It runs A1 → A4 → B1–B11 (with B2b) → C1–C5. Each script runs in a fresh environment.
+   - It runs A1 → A4 → B1–B11 (with B2b, and B2c after B11) → C1–C5. Each script runs in a fresh environment.
    - Set `run_A0 <- TRUE` to include A0, or `run_optional <- TRUE` to add A2/A3.
 5. **Or run scripts one at a time.** Every script starts with `source("00_setup.R")` and reads its inputs from `OUTPUT/`. Any script can be re-run on its own once the scripts it depends on (table below) have been run at least once.
 
@@ -99,7 +99,7 @@ Approximate run times are for a standard Windows laptop (32 GB). **Main pipeline
 | `A1_Data_cleaning.R` | Creates the three analysis files: `df_clean` (76 observed countries), `new_data_clean` (85) and `wb_clean` (194 countries) | Frozen WB snapshot + population file; 2 .dta files | < 1 min | Reads only the variables needed (`read_dta_keep`). Population = 2025 pop 15+. Assigns `region_final`. Drops missing weights, non-UN territories and missing outcome. Defines the hold-out split. Checks 76/85/33 counts |
 | `A2_Original_ML_Training.R` | Original ML training on single (simple) imputation | A1 | ~40 min | **Optional**, for interest only |
 | `A3_Imputation_sensitivity.R` | Compares MICE with simple imputation and model-based income imputation (hold-out AUC) | A1, A2 | ~35 min | **Optional**. Writes Table S12 (`A3_tableS12_imputation_sensitivity.csv`) |
-| `A4_MICE_Imputation.R` | MICE for country-level variables (194 countries; mean of 5 imputations) and individual-level variables (df + new_data; imputation 1) | A1 | ~1 h | Needs only A1. Also writes the spread across imputations (`A4_country_imputation_spread.csv`). National predictors not imputed by MICE (water stress, precipitation, basic water, under-5 mortality) and countries MICE cannot impute get the model-region median (see A4b) |
+| `A4_MICE_Imputation.R` | MICE for country-level variables (194 countries; mean of 5 imputations) and individual-level variables (df + new_data; imputation 1) | A1 | ~1 h | Needs only A1. Also writes the spread across imputations (`A4_country_imputation_spread.csv`) and the individual-level variables with no observed values by country (`A4_vars_fully_missing_by_country.csv`). National predictors not imputed by MICE (water stress, precipitation, basic water, under-5 mortality) and countries MICE cannot impute get the model-region median (see A4b) |
 | `A4b_Sensitivity_MICE_all_national_vars.R` | Sensitivity: MICE imputes ALL incomplete national variables (incl. water stress, precipitation, basic water, under-5 mortality, which A4 fills with model-region medians), then re-runs B1–B6, B8 into `OUTPUT_sensitivity_MICE_all_national/` and compares country, regional and global estimates and LCO CV metrics with the main run | Main pipeline (A1, A4, B1–B8) | ~1–2 h | **Optional**, not in run_all. Main OUTPUT/ is not changed. Run in a fresh R session |
 | `A4c_MICE_sensitivity_table_figure.R` | Supplement table (global, region, income: main vs A4b) and figure (country estimates, main vs A4b, with main 95% UIs for countries with national data gaps); list of countries changing by > 1 pp | A4b, B11 | < 1 min | **Optional.** Writes Tables S13 and S14 and the comparison figure to the A4b sensitivity folder. Run automatically at the end of A4b, or on its own to redraw |
 | `A5_Descriptive_statistics.R` | Descriptive statistics for the 76 observed countries: survey-weighted individual predictors (as Stata `svy: mean x`; overall, optionally by M49 region) and national predictors, each **before and after MICE**; number of countries per M49 region / sub-region and by tier; % missing per individual variable (Table S3) | A1, A4 | < 1 min (mostly a one-off check against the survey package) | Tables S1A, S1B, S3. Design as in Stata `svyset psu [pweight = projectionwgt_svy_yr], strata(strata) singleunit(certainty)`, with strata/PSUs made unique within country and year |
@@ -108,9 +108,10 @@ Approximate run times are for a standard Windows laptop (32 GB). **Main pipeline
 
 | Script | Purpose | Depends on | Run time | Notes |
 |---|---|---|---|---|
-| `B1_Individual_level_Training.R` | Trains and tests ENET, RF, XGB and mixed models on the 76 observed countries (individual + national predictors) | A4 | ~30 min | Tables S5, S6 (ICC with/without predictors for the S6 footnote); Figs 6, S8–S10, S15–S17. Saves out-of-sample predictions used later for UIs. RF (`num.threads = 1`) and XGBoost (`nthread = 1`, `tree_method = "hist"`) run single-threaded so results are identical on every computer |
+| `B1_Individual_level_Training.R` | Trains and tests ENET, RF, XGB and mixed models on the 76 observed countries (individual + national predictors) | A4 | ~30 min | Tables S5, S6 (ICC with/without predictors for the S6 footnote; the mixed model uses a reduced set of 13 predictors plus region, for convergence); Figs 6, S8–S10, S15–S17. Saves out-of-sample predictions used later for UIs. RF (`num.threads = 1`) and XGBoost (`nthread = 1`, `tree_method = "hist"`) run single-threaded so results are identical on every computer |
 | `B2_Individual_ENET_predictions.R` | Predicts the 85 `new_data` countries with ENET | A4, B1 | 1–2 min | Tier 2 estimates. Extrapolation checks by variable and by country |
-| `B2b_Imputation_sensitivity.R` | **Sensitivity (no change to results):** Tier 2 estimates from each of the 5 MICE imputations (prediction side), and with the ENET refitted on each of the 5 imputed training datasets (training side, α and λ fixed) | A4, B1, B2 | a few min | `B2b_tier2_by_prediction_imputation.csv`, `B2b_tier2_by_training_imputation.csv`, `B2b_enet_coefficients_by_training_imputation.csv`, `B2b_imputation_sensitivity_summary.csv`. Countries with whole variables imputed are marked |
+| `B2b_Imputation_sensitivity.R` | **Sensitivity (no change to results):** Tier 2 estimates from each of the 5 MICE imputations (prediction side), and with the ENET refitted on each of the 5 imputed training datasets (training side, α and λ fixed) | A4, B1, B2 | a few min | `B2b_tier2_by_prediction_imputation.csv`, `B2b_tier2_by_training_imputation.csv`, `B2b_enet_coefficients_by_training_imputation.csv`, `B2b_imputation_sensitivity_summary.csv`. Countries with whole variables imputed are marked. Table S15 is made from these by B2c |
+| `B2c_Imputation_sensitivity_table.R` | Table S15 from B2b: the Tier 2 countries with individual-level variables entirely imputed (Cuba, Djibouti, Guyana, Qatar), main estimate with 95% UI and range across the 5 imputations on each side; one summary row for the other Tier 2 countries | A4, B2b, B11 | seconds | Run after B11 (in run_all). `B2c_table_imputation_sensitivity.csv`; all 85 countries: `B2c_imputation_sensitivity_long.csv` |
 | `B3_Individual_XGB_predictions.R` | Same as B2 using XGB | B1, B2 | <1 min | Sensitivity |
 | `B4_Country_level_Training.R` | Trains and tests country-level models (national predictors only) on the 76 observed countries | A1 (hold-outs), A4, B1 (country folds) | 1–3 min | Tables S7, S8; Figs S14, S18, S19. Same hold-outs and 5 folds as B1. Final model refitted on 76. XGBoost single-threaded. `B4_enet_country_coefficients.csv` lists all coefficients (incl. 0) with exp(coefficient). `B4_prediction_interval_coverage.csv` checks the logit-scale (used) and prevalence-scale intervals |
 | `B5_Country_ENET_predictions_comparison.R` | Country ENET predictions for all 194; compares individual vs country models for the 85 | A4, B2, B4 | <1 min | Only the 33 Tier 3 countries enter the final estimates |
@@ -182,15 +183,17 @@ Numbering follows the manuscript. Figures are written to `OUTPUT/figures/` and t
 | Figure S17 | SHAP without water dissatisfaction | B1 | `B1_figS17_shap_noWD.png` |
 | Figure S18 | Feature importance, country-level models | B4 | `B4_figS18_country_feature_importance.png` |
 | Figure S19 | SHAP, country-level XGBoost | B4 | `B4_figS19_shap_country_xgb.png` |
-| Table S9 | Countries flagged for higher uncertainty, by reason: pre-2015 data; every national predictor outside the training range; predictors filled with the model-region median; top 15 model disagreement | B8 (inputs A1, B2, B3, B5, B6) | `B8_tableS09_flagged_countries.csv` (inputs: `B8_uncertainty_flag_inputs.csv`, `B8_outside_training_range_all.csv`, `B8_predictors_regional_median_by_country.csv`) |
+| Table S9 | Countries flagged for higher uncertainty, by reason: pre-2015 data; every national predictor outside the training range; predictors filled with the model-region median; individual-level predictors with no observed values (entirely imputed); top 15 model disagreement | B8 (inputs A1, A4, B2, B3, B5, B6) | `B8_tableS09_flagged_countries.csv` (inputs: `B8_uncertainty_flag_inputs.csv`, `B8_outside_training_range_all.csv`, `B8_predictors_regional_median_by_country.csv`) |
 | Table S10 | All 194 countries: estimates by model, final estimate with 95% UI (observed: survey logit CI, as Stata `svy: proportion`; predicted: B11 bootstrap), Table S9 flags | B11 (estimates B8) | `B11_tableS10_all_country_estimates.csv` |
 | Figure S20 | Uncertainty-interval sensitivity: main UIs vs residual bootstrap, countries fixed (B10) and countries resampled (B8), by region and income group | B11 (B8, B10) | `B11_figS20_uncertainty_sensitivity.png` (sub-regions: `B11_group_CI_comparison_sub_region.png`) |
 | Table S11 | Region reclassification sensitivity | B9 | `B9_tableS11_region_reclassification.csv` |
 | Table S12 | Imputation sensitivity: hold-out AUC by imputation approach | A3 (optional; needs A2) | `A3_tableS12_imputation_sensitivity.csv` |
-   | Text S1 | Sensitivity analysis of estimates based on national-level predictor imputation | A4b, A4c (optional) | Tables S13 and S14 (below) |
+| Text S1 | Sensitivity analysis of estimates based on national-level predictor imputation | A4b, A4c (optional) | Tables S13 and S14 (below) |
 | Table S13 | A4b sensitivity (MICE for all national variables): global, M49 region and income-group prevalence, main vs sensitivity | A4c (optional; needs A4b, B11) | `OUTPUT_sensitivity_MICE_all_national/tables/A4b_table_group_comparison.csv` |
 | Table S14 | A4b sensitivity: countries whose estimate changed by > 1 percentage point, with main 95% UI and whether the sensitivity estimate falls within it | A4c (optional; needs A4b, B11) | `OUTPUT_sensitivity_MICE_all_national/tables/A4b_table_countries_changed.csv` |
-| Text S2 | Comparison with collected national data | — | not produced by the pipeline |
+| Text S2 | Sensitivity of the estimates to individual-level imputation | B2b, B2c | Table S15 (below) |
+| Table S15 | Sensitivity analysis of Tier 2 estimates to individual-level predictor imputation: countries with entirely imputed individual-level variables (main estimate with 95% UI; range across the 5 imputations, prediction and training side) and a summary row for the other Tier 2 countries | B2c (from B2b) | `B2c_table_imputation_sensitivity.csv` (all 85 countries: `B2c_imputation_sensitivity_long.csv`) |
+| Text S3 | Comparison with collected national data | — | not produced by the pipeline |
 
 **Not numbered (kept for reference):** Figure 5 and S13 with the 6 hold-outs (`B7_*_all76.png`); prediction-interval coverage (`B4_prediction_interval_coverage.csv`); baselines (`B4_baseline_oos_predictions.csv`); B8 and B10 interval tables; alternative maps (`C1_alt_*`, `C2_alt_*`, `C4_alt_*`); single correlation plots (`C3_wi_vs_*.png`, `C3_panels/`); A4b country comparison figure (`A4b_fig_country_comparison.png`; other A4b outputs in its separate output folder).
 
@@ -209,8 +212,8 @@ Each script also writes check tables, prefixed with the script name (e.g. `A1_mo
 **Missing predictors (A4).**
 - Country-level variables (CPI, WASH mortality, ND-GAIN, log GNI): MICE across 194 countries, using the mean of 5 imputations.
 - Individual-level variables: MICE on the observed and prediction data combined, with region in place of country and the outcome excluded. Imputation 1 is used.
-- Water stress, precipitation, basic water and under-5 mortality are MICE predictors but are not imputed by MICE; a country missing one of them cannot be imputed by MICE (12 countries, mainly Pacific islands and European microstates). These gaps, and the remaining gaps in the four imputed variables, get the model-region median. `A4b` (optional) imputes all of them with MICE as a sensitivity analysis.
-- Individual-level gaps MICE cannot fill (Cuba, Djibouti, Guyana income) get the regional median or mode.
+- Water stress, precipitation, basic water and under-5 mortality are MICE predictors but are not imputed by MICE; a country missing one of them cannot be imputed by MICE (12 countries, mainly Pacific islands and European microstates). These gaps, and the remaining gaps in the four imputed variables, get the model-region median. `A4b` (optional) imputes all of them with MICE as a sensitivity analysis (Text S1).
+- Individual-level variables with no observed values in a country (income quintile, income adequacy, employment and household size in Cuba, Djibouti and Guyana; water dissatisfaction in Qatar) are imputed by MICE from respondents in other countries (flagged in Table S9). B2b/B2c show how much the Tier 2 estimates vary across the 5 imputations (Text S2, Table S15).
 
 **Validation.**
 - **Hold-out:** 6 countries are never used in training: IND, plus NAM, CMR, SOM, PSE and BRA drawn with seed 241189.
@@ -225,6 +228,7 @@ Each script also writes check tables, prefixed with the script name (e.g. `A1_mo
 - **Tier 3:** predictions from the refitted country model plus a resampled out-of-sample country residual on the logit scale (76 countries).
 - **Groups:** population-weighted (15+) prevalence of the 194 countries in that repetition; countries are not resampled. Because one refitted model predicts all countries in a repetition, model error is shared across countries.
 - `interval_source` in `00_setup.R` switches C1 between B11 (main; labelled "95% UI") and B8 intervals (labelled "95% CI").
+- The variation across the 5 individual-level imputations (B2b) is not included in the UIs.
 
 **Sensitivity analyses.**
 - **B8:** country intervals by tier (Taylor; PSU bootstrap combined with a residual bootstrap; residual bootstrap), then countries resampled *with* replacement within each group (wider: treats the 194 countries as a sample).
@@ -241,7 +245,7 @@ Each script also writes check tables, prefixed with the script name (e.g. `A1_mo
 | Brier | Mean squared error of individual probabilities | Smaller |
 | Calibration slope | <1: high predictions tend to be above, and low predictions below, the observed values; >1: the reverse (high predictions below, low predictions above) | ≈ 1 |
 | Calibration intercept | Systematic over- or under-prediction | ≈ 0 |
-| ICC (mixed model) | Share of outcome variation between countries (latent scale). B1 reports it with and without predictors; the drop is the share of between-country variance the predictors explain (Table S6 footnote) | Lower with predictors = predictors capture country differences |
+| ICC (mixed model) | Share of outcome variation between countries (latent scale). B1 reports it with and without predictors (a reduced set of 13 predictors plus region); the drop is the share of between-country variance these predictors explain (Table S6 footnote) | Lower with predictors = predictors capture country differences |
 
 Hold-out results rest on only 6 countries, so read them alongside the LCO CV results.
 
@@ -286,4 +290,3 @@ If you use this code, please cite the paper:
 The citation details will be updated when the pre-print is available. GitHub's "Cite this repository" button uses `CITATION.cff`.
 
 The code is shared for transparency and reproducibility of the published results. For other uses, please contact the author (indira.bose@lshtm.ac.uk).
-
